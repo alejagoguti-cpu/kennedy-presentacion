@@ -24,7 +24,7 @@ const ESTACIONES = {
   portada: { p: [-4200, 3200, 5200], o: [-500, 200, 0] },
   pot: { p: [0, 3300, 6200], o: [0, 800, 0], nom: 'Red multicapa del POT' },
   capas: { p: [6200, 3600, 6200], o: [0, 1300, 0] },
-  red6: { p: [450, 3400, 4300], o: [450, 950, 0], nom: 'Red de seis problemas' },
+  red6: { p: [900, 2300, 2900], o: [250, 150, -250], nom: 'Red de seis problemas · conectografía' },
   mapa: { p: [0, 8800, 3600], o: [0, 0, 200], nom: 'Conectografía · Kennedy' },
   cora: { p: [-715 + 1100, 1700, -168 + 2300], o: [-715, 0, -168], nom: 'Corabastos' },
   coraCerca: { p: [-715 + 500, 650, -168 + 950], o: [-715, 60, -168], nom: 'Corabastos' },
@@ -70,7 +70,7 @@ const X = {
   /** red de seis problemas */
   arista(i, d = 1.1) { const t = W.red6.tubos[i]; const pu = t.userData.punta; tw(pu.scale, { x: 1, y: 1, z: 1, duration: D(0.3), ease: 'back.out(3)', delay: D(d * 0.9) }); UI.matrizMarcar('adj', t.userData.a, t.userData.b); const p = { v: t.geometry.drawRange.count === Infinity ? 0 : t.geometry.drawRange.count }; tw(p, { v: t.userData.total, duration: D(d), ease: 'steps(14)', onUpdate: () => t.geometry.setDrawRange(0, Math.floor(p.v / 3) * 3) }); if (R.rapido) t.geometry.setDrawRange(0, t.userData.total); },
   nodo6(k, f, d = 0.8) { const m = W.red6.nod[k]; const s = m.userData.r * f; tw(m.scale, { x: s, y: s, z: s, duration: D(d), ease: 'back.out(2)' }); },
-  aSuelo(on = true, d = 2.4) { Object.entries(W.red6.nod).forEach(([k, m], i) => { const dst = on ? W.red6Suelo[k] : W.red6.P[k]; tw(m.position, { x: dst.x, y: dst.y, z: dst.z, duration: D(d), ease: 'expo.inOut', delay: D(i * 0.08) }); }); W.red6.tubos.forEach((t) => { tw(t.material, { opacity: on ? 0 : 0.9, duration: D(0.6) }); tw(t.userData.punta.material, { opacity: on ? 0 : 0.95, duration: D(0.6) }); }); },
+  aSuelo(on = true, d = 2.4) { Object.entries(W.red6.nod).forEach(([k, m], i) => { const dst = on ? W.red6Suelo[k] : W.red6.P[k]; tw(m.position, { x: dst.x, y: dst.y, z: dst.z, duration: D(d), ease: 'expo.inOut', delay: D(i * 0.08) }); }); /* en la conectografía los arcos siguen visibles sobre el territorio */ },
   /** UPZ */
   upzAlto(on = true, k = 1, d = 1.6) { Object.values(W.upz).forEach(({ m }, i) => tw(m.scale, { y: on ? m.userData.h * k : 0.001, duration: D(d), ease: 'steps(10)', delay: D(i * 0.05) })); },
   /** mercados distribuidos (esquema) */
@@ -85,7 +85,7 @@ const X = {
     });
   },
   agentesVel(v) { if (R.rapido) W.agentes.vel = v; else gsap.to(W.agentes, { vel: v, duration: 1.5 }); },
-  despiece(sep, d = 1.6) { W.pot.planos.forEach((g, i) => tw(g.position, { y: i * sep, duration: D(d), ease: 'steps(12)', delay: D(i * 0.04) })); },
+  despiece(sep, d = 1.6) { W.pot.planos.forEach((g, i) => tw(g.position, { y: sep ? 300 + i * sep : 0, duration: D(d), ease: 'steps(12)', delay: D(i * 0.04) })); },
   temblor() { if (R.rapido) return; gsap.fromTo('#mundo, #escena', { x: 0 }, { x: () => (Math.random() - .5) * 30, y: () => (Math.random() - .5) * 20, duration: 0.06, repeat: 8, yoyo: true, ease: 'steps(1)', clearProps: 'transform' }); },
 };
 
@@ -98,7 +98,7 @@ function reiniciarMundo() {
   Object.values(W.upz).forEach(({ m }) => (m.scale.y = 0.001));
   W.red6.tubos.forEach((t) => { t.geometry.setDrawRange(0, 0); t.material.opacity = 0.9; t.userData.punta.scale.setScalar(0.001); t.userData.punta.material.opacity = 0.95; });
   Object.entries(W.red6.nod).forEach(([k, m]) => { m.position.copy(W.red6.P[k]); m.scale.setScalar(m.userData.r); });
-  W.pot.planos.forEach((g, i) => (g.position.y = i * 150));
+  W.pot.planos.forEach((g) => (g.position.y = 0));
   W.mercados.forEach((g) => { g.userData.ar.scale.setScalar(0.001); g.userData.disco.scale.setScalar(0.001); g.userData.n.scale.setScalar(0.001); });
   W.estaciones.forEach((g) => g.scale.setScalar(0.001));
   W.corredor.geometry.setDrawRange(0, 0);
@@ -200,6 +200,7 @@ async function iniciar() {
   texturaGrano();
   await crearMundo(document.getElementById('mundo'));
   gob = gobernador(W); gsap.ticker.fps(12); gsap.ticker.add(cuadro); modoHUD();
+  { const c = W.pot.centro, R = W.pot.radio; ESTACIONES.pot = { p: [c.x + R * 0.3, R * 1.45, c.z + R * 1.95], o: [c.x + R * 0.15, 0, c.z - R * 0.15], nom: 'Red del POT sobre Bogotá' }; }
   window.__k = { ir, sig, ant, BEATS, X, W };
   const desde = parseInt(location.hash.slice(1), 10);
   const empezar = () => { document.getElementById('inicio').remove(); document.body.classList.add('presentando'); if (desde > 1) ir(desde - 1, false); else ir(0); };

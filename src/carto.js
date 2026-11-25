@@ -25,13 +25,13 @@ const LEY = {
 };
 [...'ABCDEF'].forEach((k) => (LEY['p' + k] = [['punto', COL_P[k], NOM_P[k]]]));
 LEY['red-pot'] = [
-  ...CAPAS_POT.map(([n, c]) => ['nodo', c, n]),
-  ['nota', '', 'Nodo: tamaño ∝ grado · halo = 5 de mayor grado'],
+  ...CAPAS_POT.map(([n, c]) => ['anillo', c, n]),
+  ['nota', '', 'Nodo = lugar real (anillo + haz) · tamaño ∝ grado · lima con halo = 5 de mayor grado · arco = relación'],
   ...Object.entries(TENSION).map(([n, [c]]) => [n === 'Media' ? 'linea' : 'gruesa', c, 'Relación · tensión ' + n.toLowerCase()]),
 ];
 LEY.red6 = [
-  ...[...'FABCDE'].map((k) => ['nodo', COL_P[k], NOM_P[k]]),
-  ['flecha', '#C7FF27', 'Relación causal · origen → efecto'], ['nota', '', 'Nodo: tamaño ∝ grado (entrada + salida)'],
+  ...[...'FABCDE'].map((k) => ['anillo', COL_P[k], NOM_P[k]]),
+  ['flecha', '#C7FF27', 'Arco causal · origen → efecto'], ['nota', '', 'Nodo = lugar real del problema · tamaño ∝ grado (entrada + salida)'],
 ];
 const ORDEN = ['red-pot', 'red6', 'losa', 'edif', 'vias', 'vias-prin', 'agua', 'upz', 'flujos', 'iso', 'metro', 'pA', 'pB', 'pC', 'pD', 'pE', 'pF', 'corabastos', 'mercados', 'estaciones', 'corredores', 'bavaria', 'agentes', 'especies', 'capas18'];
 

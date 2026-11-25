@@ -213,111 +213,124 @@ async function edificios() {
   mat.transparent = false; // los edificios no se funden: crecen (uSube)
 }
 
-/* ------------------------------------------------------------------ red del POT: ARQUITECTURA MULTICAPA (58 nodos, 383 aristas reales)
-   Convenciones: un plano por capa del macromodelo · color = capa · tamaño = grado · halo = 5 nodos de mayor grado
-   línea = relación (no dirigida: pulsos en ambos sentidos) · color/grosor de línea = tensión (Media, Alta, Severa, Crítica) */
+/* ------------------------------------------------------------------ CONECTOGRAFÍA: redes sobre su geografía real
+   Nodo = lugar real (anillo en el suelo + haz de luz + cabeza) · relación = arco sobre el territorio.
+   Convenciones de la red del POT: color = capa · tamaño = grado · halo = 5 de mayor grado · color/grosor del arco = tensión. */
 export const CAPAS_POT = [
-  ['Actuaciones Estratégicas (AE)', '#C7FF27'], ['Estructura ecológica', '#9be15d'], ['Condicionantes normativos', '#898D84'], ['Movilidad e infraestructura', '#A99BCB'],
-  ['Actividad económica', '#B58C78'], ['Usos del suelo (POT)', '#F5F3EB'], ['Actores clave', '#E36C4B'], ['Aspectos poco atendidos', '#6FA3AF'],
+  ['Actuaciones Estratégicas (AE)', '#C7FF27'], ['Estructura ecológica', '#9be15d'], ['Condicionantes normativos', '#b9bcb3'], ['Movilidad e infraestructura', '#A99BCB'],
+  ['Actividad económica', '#e0a070'], ['Usos del suelo (POT)', '#F5F3EB'], ['Actores clave', '#E36C4B'], ['Aspectos poco atendidos', '#6FC3D0'],
 ];
-export const TENSION = { Media: ['#F5F3EB', 0.16], Alta: ['#A99BCB', 0.75], Severa: ['#B58C78', 0.95], 'Crítica': ['#E36C4B', 1] };
+export const TENSION = { Media: ['#F5F3EB', 0.16], Alta: ['#A99BCB', 0.75], Severa: ['#e0a070', 0.95], 'Crítica': ['#E36C4B', 1] };
+const MXg = 111320 * Math.cos(4.63 * Math.PI / 180), MYg = 110540;
+/** [lng, lat] → marco local (igual que el simulador: modelo → x − cx, −(y − cy)) */
+export const geo = (lng, lat) => [5193.24 + (lng + 74.17) * MXg - 7188, -((2090.06 + (lat - 4.63) * MYg) - 2045.46)];
+
 function metricas(ids, ar) {
   const n = ids.length, idx = Object.fromEntries(ids.map((k, i) => [k, i])), ady = ids.map(() => new Set());
   ar.forEach((e) => { ady[idx[e.a]].add(idx[e.b]); ady[idx[e.b]].add(idx[e.a]); });
   const grado = ady.map((s) => s.size), CB = new Array(n).fill(0); let diam = 0, comp = 0; const visto = new Array(n).fill(false);
-  for (let s = 0; s < n; s++) { // Brandes (no ponderado) + excentricidad
+  for (let s = 0; s < n; s++) {
     const S = [], Pr = ids.map(() => []), sig = new Array(n).fill(0), d = new Array(n).fill(-1); sig[s] = 1; d[s] = 0; const Q = [s];
     while (Q.length) { const v = Q.shift(); S.push(v); for (const w of ady[v]) { if (d[w] < 0) { d[w] = d[v] + 1; Q.push(w); } if (d[w] === d[v] + 1) { sig[w] += sig[v]; Pr[w].push(v); } } }
     diam = Math.max(diam, ...d); const del = new Array(n).fill(0);
     while (S.length) { const w = S.pop(); for (const v of Pr[w]) del[v] += (sig[v] / sig[w]) * (1 + del[w]); if (w !== s) CB[w] += del[w]; }
     if (!visto[s]) { comp++; d.forEach((x, i) => { if (x >= 0) visto[i] = true; }); }
   }
-  const inter = CB.map((c) => c / ((n - 1) * (n - 2))); // suma de ambos sentidos / (n-1)(n-2) → [0,1]
-  return { n, m: ar.length, grado, inter, densidad: (2 * ar.length) / (n * (n - 1)), gradoMedio: (2 * ar.length) / n, diametro: diam, componentes: comp };
+  return { n, m: ar.length, grado, inter: CB.map((c) => c / ((n - 1) * (n - 2))), densidad: (2 * ar.length) / (n * (n - 1)), gradoMedio: (2 * ar.length) / n, diametro: diam, componentes: comp };
 }
+
+/** marcador de conectografía (unidad: con escala r → anillo de radio 0,5r, haz de 4r) */
+const GEO_M = { anillo: new THREE.RingGeometry(0.42, 0.5, 64), disco: new THREE.CircleGeometry(0.42, 48), halo: new THREE.RingGeometry(0.62, 0.66, 64), haz: new THREE.CylinderGeometry(0.035, 0.06, 4, 10, 1, true).translate(0, 2, 0), cabeza: new THREE.SphereGeometry(0.15, 20, 14) };
+[GEO_M.anillo, GEO_M.disco, GEO_M.halo].forEach((g) => g.rotateX(-Math.PI / 2));
+function marcador(color, hub = false) {
+  const g = new THREE.Group(), c = new THREE.Color(color);
+  const add = (geo, op) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false })); g.add(m); return m; };
+  add(GEO_M.anillo, 0.95).position.y = 2; add(GEO_M.disco, 0.22).position.y = 1.5; add(GEO_M.haz, 0.55);
+  const cab = add(GEO_M.cabeza, 1); cab.position.y = 4; g.userData.cabeza = cab;
+  if (hub) { const h = add(GEO_M.halo, 0.9); h.position.y = 2; g.userData.halo = h; }
+  return g;
+}
+
+/* ---------------------------------------------------------------- red del POT sobre Bogotá (58 nodos y 383 relaciones reales) */
+const SEG = 18; // segmentos por arco
 function redPOT(pot) {
   const ids = Object.keys(pot.nodos), idx = Object.fromEntries(ids.map((k, i) => [k, i]));
   const ar = Object.values(pot.aristas).filter((e) => idx[e.a] !== undefined && idx[e.b] !== undefined);
   const M = metricas(ids, ar);
   const capaDe = ids.map((k) => Math.max(0, CAPAS_POT.findIndex((c) => c[0] === pot.nodos[k].capa)));
-  let sd = 11; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
-  const P = ids.map(() => new THREE.Vector2((rnd() - 0.5) * 2400, (rnd() - 0.5) * 2400));
-  for (let it = 0; it < 320; it++) {
-    const F = P.map(() => new THREE.Vector2());
-    for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) { const d = P[a].clone().sub(P[b]); const L = Math.max(40, d.length()); const k = (capaDe[a] === capaDe[b] ? 9e5 : 3.5e5) / (L * L); d.multiplyScalar(k / L); F[a].add(d); F[b].sub(d); }
-    ar.forEach((e) => { const a = idx[e.a], b = idx[e.b]; const d = P[b].clone().sub(P[a]); const L = d.length(); d.multiplyScalar((L - 700) * 0.01 / Math.max(L, 1)); F[a].add(d); F[b].sub(d); });
-    P.forEach((p, i) => { F[i].add(p.clone().multiplyScalar(-0.006)); p.add(F[i].clampLength(0, 140)); });
-  }
-  const lado = Math.max(...P.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y)))) + 260;
-  const grp = new THREE.Group(); grp.position.set(0, 700, 0);
+  const P = ids.map((k) => geo(pot.nodos[k].lon, pot.nodos[k].lat));
+  // nodos en el mismo sitio se separan un poco en anillo (legibilidad), sin perder su lugar
+  const usados = new Map(); P.forEach((p, i) => { const k = Math.round(p[0] / 60) + ',' + Math.round(p[1] / 60); const n = usados.get(k) || 0; usados.set(k, n + 1); if (n) { const a = n * 2.4; p[0] += Math.cos(a) * 90 * Math.sqrt(n); p[1] += Math.sin(a) * 90 * Math.sqrt(n); } });
+  const xs = P.map((p) => p[0]), zs = P.map((p) => p[1]);
+  const bb = { x0: Math.min(...xs) - 400, x1: Math.max(...xs) + 400, z0: Math.min(...zs) - 400, z1: Math.max(...zs) + 400 };
+  const centro = new THREE.Vector3((bb.x0 + bb.x1) / 2, 0, (bb.z0 + bb.z1) / 2), radio = Math.max(bb.x1 - bb.x0, bb.z1 - bb.z0) / 2;
+  const grp = new THREE.Group();
   const planos = CAPAS_POT.map(([nom, col], i) => {
-    const g = new THREE.Group(); g.position.y = i * 150; g.userData.i = i;
-    const pl = new THREE.Mesh(new THREE.PlaneGeometry(lado * 2, lado * 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.045, side: THREE.DoubleSide, depthWrite: false }));
-    pl.rotation.x = -Math.PI / 2; g.add(pl);
-    const bord = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, z]) => new THREE.Vector3(x * lado, 0, z * lado))), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.55 }));
-    g.add(bord);
-    const ancla = new THREE.Object3D(); ancla.position.set(lado, 0, lado); g.add(ancla); g.userData.ancla = ancla;
+    const g = new THREE.Group(); g.position.y = 0; g.userData.i = i;
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(bb.x1 - bb.x0, bb.z1 - bb.z0), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+    pl.rotation.x = -Math.PI / 2; pl.position.set(centro.x, 0, centro.z); g.add(pl); g.userData.pl = pl;
+    const bord = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[bb.x0, bb.z0], [bb.x1, bb.z0], [bb.x1, bb.z1], [bb.x0, bb.z1]].map(([x, z]) => new THREE.Vector3(x, 0, z))), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6, fog: false }));
+    g.add(bord); g.userData.bord = bord;
+    const ancla = new THREE.Object3D(); ancla.position.set(bb.x1, 0, bb.z1); g.add(ancla); g.userData.ancla = ancla;
     grp.add(g); return g;
   });
   const top5 = [...M.grado].sort((a, b) => b - a)[4];
-  const esf = new THREE.SphereGeometry(1, 32, 20);
   const nodos = ids.map((k, i) => {
-    const c = CAPAS_POT[capaDe[i]][1]; const hub = M.grado[i] >= top5;
-    const m = new THREE.Mesh(esf, hub ? cromoLima() : cromo(c)); m.position.set(P[i].x, 0, P[i].y);
-    const r = 30 + Math.sqrt(M.grado[i]) * 16;
-    m.userData = { r, hub, grado: M.grado[i], inter: M.inter[i], nombre: pot.nodos[k].nombre, capa: pot.nodos[k].capa, ci: capaDe[i] };
-    m.scale.setScalar(r); planos[capaDe[i]].add(m);
-    if (hub) { const h = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.06, 8, 64), cromoLima()); h.rotation.x = Math.PI / 2; m.add(h); m.userData.halo = h; }
-    return m;
+    const hub = M.grado[i] >= top5, m = marcador(hub ? '#C7FF27' : CAPAS_POT[capaDe[i]][1], hub);
+    m.position.set(P[i][0], 0, P[i][1]); const r = 34 + Math.sqrt(M.grado[i]) * 17;
+    m.userData = { ...m.userData, r, hub, grado: M.grado[i], inter: M.inter[i], nombre: pot.nodos[k].nombre, capa: pot.nodos[k].capa, ci: capaDe[i] };
+    m.scale.setScalar(r); planos[capaDe[i]].add(m); return m;
   });
   const mkL = (lista, ancho, op) => {
-    const g = new LineSegmentsGeometry(); const mat = new LineMaterial({ vertexColors: true, linewidth: ancho, transparent: true, opacity: op, depthWrite: false });
+    const g = new LineSegmentsGeometry(); const mat = new LineMaterial({ vertexColors: true, linewidth: ancho, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     mat.resolution.set(innerWidth, innerHeight); addEventListener('resize', () => mat.resolution.set(innerWidth, innerHeight));
-    const col = []; lista.forEach((e) => { const c = new THREE.Color((TENSION[e.tension] || TENSION.Media)[0]); col.push(c.r, c.g, c.b, c.r, c.g, c.b); });
-    g.setPositions(new Float32Array(lista.length * 6)); g.setColors(col);
+    const col = []; lista.forEach((e) => { const c = new THREE.Color((TENSION[e.tension] || TENSION.Media)[0]); for (let s = 0; s < SEG; s++) col.push(c.r, c.g, c.b, c.r, c.g, c.b); });
+    g.setPositions(new Float32Array(lista.length * SEG * 6)); g.setColors(col);
     const l = new LineSegments2(g, mat); l.frustumCulled = false; grp.add(l); return { l, g, lista };
   };
-  const debiles = mkL(ar.filter((e) => e.tension === 'Media'), 1.2, 0.3), fuertes = mkL(ar.filter((e) => e.tension !== 'Media'), 3.4, 0.95);
+  const debiles = mkL(ar.filter((e) => e.tension === 'Media'), 1, 0.13), fuertes = mkL(ar.filter((e) => e.tension !== 'Media'), 3, 0.95);
   const NP = ar.length * 2, pp = new Float32Array(NP * 3); const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
   pg.setAttribute('aR', new THREE.BufferAttribute(new Float32Array(NP).map(() => Math.random()), 1)); pg.setAttribute('aK', new THREE.BufferAttribute(new Float32Array(NP).fill(0.8), 1));
-  const pm = new THREE.Points(pg, matPuntos('#F5F3EB', 14)); pm.material.uniforms.uAp.value = 1; pm.frustumCulled = false; grp.add(pm);
+  const pm = new THREE.Points(pg, matPuntos('#ffffff', 11)); pm.material.uniforms.uAp.value = 1; pm.frustumCulled = false; grp.add(pm);
   registrar('red-pot', grp);
-  const v = new THREE.Vector3(), w = new THREE.Vector3(), inv = new THREE.Matrix4();
-  W.pot = { grp, nodos, planos, M, ids, ar, idx, lado, actualizar(t) {
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), Q = new THREE.Vector3();
+  const punto = (a, b, u, out) => { const d = Math.hypot(b.x - a.x, b.z - a.z); const h = Math.min(1300, 90 + d * 0.24); out.lerpVectors(a, b, u); out.y += 4 * h * u * (1 - u); return out; };
+  W.pot = { grp, nodos, planos, M, ids, ar, idx, centro, radio, actualizar(t) {
     if (!grp.visible) return;
-    grp.updateMatrixWorld(true); inv.copy(grp.matrixWorld).invert();
-    const pos = (e) => [nodos[idx[e.a]].getWorldPosition(v).applyMatrix4(inv).clone(), nodos[idx[e.b]].getWorldPosition(w).applyMatrix4(inv).clone()];
-    [debiles, fuertes].forEach(({ g, lista }) => { const arr = g.attributes.instanceStart.data.array; lista.forEach((e, i) => { const [p, q] = pos(e); arr.set([p.x, p.y, p.z, q.x, q.y, q.z], i * 6); }); g.attributes.instanceStart.data.needsUpdate = true; g.computeBoundingSphere(); });
-    ar.forEach((e, i) => { const [p, q] = pos(e); for (let s2 = 0; s2 < 2; s2++) { const f = (t * 0.25 + i * 0.137) % 1, u = s2 ? 1 - f : f; pp.set([p.x + (q.x - p.x) * u, p.y + (q.y - p.y) * u, p.z + (q.z - p.z) * u], (i * 2 + s2) * 3); } });
+    const base = (e, v) => { const m = nodos[idx[e]]; v.copy(m.position).add(m.parent.position); v.y += 6; return v; };
+    [debiles, fuertes].forEach(({ g, lista }) => { const arr = g.attributes.instanceStart.data.array; let o = 0; lista.forEach((e) => { base(e.a, A); base(e.b, B); for (let s = 0; s < SEG; s++) { punto(A, B, s / SEG, Q); arr[o++] = Q.x; arr[o++] = Q.y; arr[o++] = Q.z; punto(A, B, (s + 1) / SEG, Q); arr[o++] = Q.x; arr[o++] = Q.y; arr[o++] = Q.z; } }); g.attributes.instanceStart.data.needsUpdate = true; g.computeBoundingSphere(); });
+    ar.forEach((e, i) => { base(e.a, A); base(e.b, B); for (let s2 = 0; s2 < 2; s2++) { const f = (t * 0.22 + i * 0.137) % 1; punto(A, B, s2 ? 1 - f : f, Q); pp.set([Q.x, Q.y, Q.z], (i * 2 + s2) * 3); } });
     pg.attributes.position.needsUpdate = true;
-    nodos.forEach((m) => { if (m.userData.halo) m.userData.halo.rotation.z = t; });
+    planos.forEach((g) => { const v = g.position.y > 40; g.userData.pl.visible = v; g.userData.bord.visible = v; });
+    nodos.forEach((m) => { if (m.userData.halo) { const k = 1 + 0.18 * Math.sin(t * 3); m.userData.halo.scale.set(k, 1, k); } });
   } };
 }
 
-/* ------------------------------------------------------------------ red de los seis problemas: grafo DIRIGIDO causa → efecto */
+/* ---------------------------------------------------------------- red DIRIGIDA de los seis problemas, en sus lugares reales */
 export const RED6 = { aristas: [['B', 'A'], ['B', 'F'], ['F', 'C'], ['F', 'D'], ['C', 'D'], ['A', 'F'], ['A', 'E'], ['F', 'E']] };
 function red6() {
-  const grp = new THREE.Group(); grp.position.set(0, 900, 0);
-  const orden = ['F', 'A', 'E', 'D', 'C', 'B'];
-  const P = {}; orden.forEach((k, i) => { if (k === 'F') P[k] = new THREE.Vector3(0, 120, 0); else { const a = ((i - 1) / 5) * Math.PI * 2 - Math.PI / 2; P[k] = new THREE.Vector3(Math.cos(a) * 1500, 0, Math.sin(a) * 1500); } });
-  const L = W.datos.lug; W.red6Suelo = {};
-  [...'ABCDEF'].forEach((k) => { const h = L[k].hitos?.[0]?.p; let x = 0, z = 0; if (h) [x, z] = h; else { L[k].pts.forEach((p) => { x += p[0]; z += p[1]; }); x /= L[k].pts.length; z /= L[k].pts.length; } W.red6Suelo[k] = new THREE.Vector3(x, -900 + 40, z); });
+  const grp = new THREE.Group();
+  const L = W.datos.lug, cen = (k) => { let x = 0, z = 0; L[k].pts.forEach((p) => { x += p[0]; z += p[1]; }); return [x / L[k].pts.length, z / L[k].pts.length]; };
+  // un lugar por problema (sin superponer): hitos reales o el centroide de sus datos
+  const lugar = { F: [-715, -168], E: [-533, -385], A: [-926, 1118], D: [2119, -1067], B: cen('B'), C: cen('C') };
+  const P = {}; W.red6Suelo = {};
+  Object.entries(lugar).forEach(([k, [x, z]]) => { P[k] = new THREE.Vector3(x, 0, z); W.red6Suelo[k] = P[k].clone(); });
   const grado = {}; [...'ABCDEF'].forEach((k) => (grado[k] = { in: 0, out: 0 })); RED6.aristas.forEach(([a, b]) => { grado[a].out++; grado[b].in++; });
   W.red6Grado = grado;
-  const radio = (k) => 90 + (grado[k].in + grado[k].out) * 26;
+  const radio = (k) => 70 + (grado[k].in + grado[k].out) * 17;
   const nod = {};
-  orden.forEach((k) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), k === 'F' ? cromoLima() : cromo(COL_P[k])); m.position.copy(P[k]); m.userData = { k, r: radio(k) }; m.scale.setScalar(radio(k)); grp.add(m); nod[k] = m; });
+  [...'FABCDE'].forEach((k) => { const m = marcador(COL_P[k], k === 'F'); m.position.copy(P[k]); m.userData = { ...m.userData, k, r: radio(k) }; m.scale.setScalar(radio(k)); grp.add(m); nod[k] = m; });
   const tubos = RED6.aristas.map(([a, b]) => {
-    const A = P[a], B = P[b]; const mid = A.clone().add(B).multiplyScalar(0.5).add(new THREE.Vector3(0, 380, 0));
+    const A = P[a].clone().setY(8), B = P[b].clone().setY(8), d = A.distanceTo(B);
+    const mid = A.clone().add(B).multiplyScalar(0.5).setY(Math.min(1400, 180 + d * 0.42));
     const curva = new THREE.QuadraticBezierCurve3(A, mid, B);
     const col = a === 'F' || b === 'F' ? C.lima : C.marfil;
-    const t = new THREE.Mesh(new THREE.TubeGeometry(curva, 60, 12, 8, false), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9 }));
+    const t = new THREE.Mesh(new THREE.TubeGeometry(curva, 80, 9, 8, false), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, fog: false }));
     t.geometry.setDrawRange(0, 0);
-    let u = 0.98; const rb = radio(b) + 30; while (u > 0.5 && curva.getPoint(u).distanceTo(B) < rb) u -= 0.005;
-    const punta = new THREE.Mesh(new THREE.ConeGeometry(46, 130, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 }));
-    punta.geometry.translate(0, -65, 0); punta.position.copy(curva.getPoint(u)); punta.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), curva.getTangent(u).normalize()); punta.scale.setScalar(0.001);
-    grp.add(punta);
-    t.userData = { a, b, curva, total: t.geometry.index.count, punta }; grp.add(t); return t;
+    let u = 0.995; const rb = radio(b) * 0.5 + 20; while (u > 0.5 && Math.hypot(curva.getPoint(u).x - B.x, curva.getPoint(u).z - B.z) < rb) u -= 0.003;
+    const punta = new THREE.Mesh(new THREE.ConeGeometry(34, 110, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, fog: false }));
+    punta.geometry.translate(0, -55, 0); punta.position.copy(curva.getPoint(u)); punta.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), curva.getTangent(u).normalize()); punta.scale.setScalar(0.001);
+    grp.add(punta); t.userData = { a, b, curva, total: t.geometry.index.count, punta }; grp.add(t); return t;
   });
   registrar('red6', grp);
   W.red6 = { grp, nod, tubos, P };
