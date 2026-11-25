@@ -189,3 +189,6 @@ body.presentadora { overflow: auto; background: #0b0c0a; }
 .metr td.n { font: 500 13px var(--m); text-align: right; color: var(--lima); }
 .metr th:not(:first-child) { text-align: right; }
 .metr-nota { font: 400 11px var(--b); color: #9fa298; line-height: 1.4; }
+
+/* velo para leer el texto sobre el cielo y la ciudad realistas */
+#escena::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(8, 9, 12, .62) 0%, rgba(8, 9, 12, .25) 38%, transparent 60%), linear-gradient(180deg, rgba(8, 9, 12, .45) 0%, transparent 18%, transparent 78%, rgba(8, 9, 12, .55) 100%); }

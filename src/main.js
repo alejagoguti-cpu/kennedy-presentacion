@@ -5,6 +5,7 @@ import * as UI from './ui.js';
 import { R, D, tw, twf } from './ui.js';
 import { transicion } from './trans.js';
 import { actualizarCarto, avisoZoom } from './carto.js';
+import { sombraSigue, gobernador } from './realismo.js';
 import { CAPITULOS } from './guion.js';
 import './estilo.css';
 
@@ -109,7 +110,7 @@ function entrarCapitulo(ci) {
   const c = CAPITULOS[ci];
   reiniciarMundo();
   UI.limpiarTodo();
-  capa('losa', true, 0); capa('edif', true, 0); capa('vias', true, 0);
+  capa('losa', true, 0); capa('edif', true, 0);
   W.capas.edif.userData.u.uSube.value = 1;
   c.base?.(X);
   if (c.cam) cam(c.cam, 0);
@@ -117,7 +118,7 @@ function entrarCapitulo(ci) {
 }
 
 /* ======================================================================= navegación */
-let idx = -1, ocupado = false;
+let idx = -1, ocupado = false, gob = null, ultimoCuadro = 0;
 async function correrBeat(n, conTransicion) {
   const b = BEATS[n]; const c = CAPITULOS[b.ci];
   if (b.bi === 0) {
@@ -186,7 +187,8 @@ function cuadro() {
   W.pot?.actualizar(t);
   W.red6?.grp && (W.red6.grp.rotation.y = Math.sin(t * 0.15) * 0.12);
   W.arco.material.opacity = 0.25 + Math.sin(t * 1.05) * 0.12; W.polvo.rotation.y = t * 0.01;
-  W.r.render(W.scene, W.cam);
+  sombraSigue(W, camT.o, W.cam.position.distanceTo(camT.o)); if (W.arboles) { W.arboles.UT.uT.value = t; W.arboles.grp.visible = W.cam.position.distanceTo(camT.o) < 5200; } // los árboles solo cuando se distinguen
+  const ahora = performance.now(); if (ultimoCuadro) gob?.(ahora - ultimoCuadro); ultimoCuadro = ahora; W.r.render(W.scene, W.cam);
   UI.proyectarEts(); actualizarCarto(camT.o);
   // hervor stop-motion de la capa DOM y grano que cambia cada cuadro
   if (W.stop) { document.getElementById('escena').style.transform = `translate(${(Math.random() - .5) * 2}px, ${(Math.random() - .5) * 2}px) rotate(${(Math.random() - .5) * 0.12}deg)`; grano.style.backgroundPosition = `${(Math.random() * 256) | 0}px ${(Math.random() * 256) | 0}px`; }
@@ -197,7 +199,7 @@ function alternarStop() { W.stop = !W.stop; gsap.ticker.fps(W.stop ? 12 : 60); i
 async function iniciar() {
   texturaGrano();
   await crearMundo(document.getElementById('mundo'));
-  gsap.ticker.fps(12); gsap.ticker.add(cuadro); modoHUD();
+  gob = gobernador(W); gsap.ticker.fps(12); gsap.ticker.add(cuadro); modoHUD();
   window.__k = { ir, sig, ant, BEATS, X, W };
   const desde = parseInt(location.hash.slice(1), 10);
   const empezar = () => { document.getElementById('inicio').remove(); document.body.classList.add('presentando'); if (desde > 1) ir(desde - 1, false); else ir(0); };

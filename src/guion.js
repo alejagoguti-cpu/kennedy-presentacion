@@ -87,7 +87,7 @@ export const CAPITULOS = [
       } },
       { t: 'las relaciones de dependencia y las jerarquías que estructuran este modelo de ciudad.', a: (X) => {
         X.quitarEts(); X.quitar('met');
-        X.despiece(520, 2); X.cam({ p: [0, 3400, 9800], o: [0, 2300, 0], nom: 'Despiece multicapa' }, 2.4);
+        X.despiece(520, 2); X.cam({ p: [0, 3700, 9800], o: [0, 2650, 0], nom: 'Despiece multicapa' }, 2.4);
         X.titulo('Arquitectura *multicapa*: dependencias y jerarquías', { kick: '02 · Estructura del plan', width: 38, cls: 'chico' });
         X.W.pot.planos.forEach((g, i) => X.et('capa' + i, { p: [0, 0, 0], obj: g.userData.ancla, t: X.CAPAS_POT[i][0], s: 'capa ' + (i + 1) + ' · ' + X.W.pot.nodos.filter((m) => m.userData.ci === i).length + ' nodos', c: X.CAPAS_POT[i][1], cls: 'nodo', delay: 0.6 + i * 0.12 }));
       } },

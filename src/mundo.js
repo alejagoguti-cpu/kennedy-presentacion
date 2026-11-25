@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { cieloYLuz, cerros, suelo, arboles, materialEdificios, colorEdificio } from './realismo.js';
 
 export const W = { capas: {}, et: new Map(), t: 0, stop: true };
 const BASE = './';
@@ -109,18 +110,15 @@ export async function crearMundo(canvas) {
   scene.environment = entorno(r);
   const cam = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 5, 60000);
   Object.assign(W, { r, scene, cam, obj: new THREE.Vector3(), pos: new THREE.Vector3(0, 9000, 9000) });
-  scene.add(new THREE.HemisphereLight('#F5F3EB', '#2a2c27', 1.1));
-  const sol = new THREE.DirectionalLight('#F5F3EB', 1.6); sol.position.set(-3000, 6000, 2500); scene.add(sol);
-  const rim = new THREE.DirectionalLight(C.lavanda, 0.9); rim.position.set(4000, 1500, -4000); scene.add(rim);
+  cieloYLuz(W); cerros(W);
   addEventListener('resize', () => { r.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; desplazar(); });
   desplazar();
 
   // arco de luz del mundo (borde de planeta) — siempre vivo
-  const arco = new THREE.Mesh(new THREE.TorusGeometry(26000, 60, 8, 200), new THREE.MeshBasicMaterial({ color: C.lima, transparent: true, opacity: 0.35, fog: false }));
-  arco.rotation.x = Math.PI / 2.2; arco.position.set(0, -9000, -24000); scene.add(arco); W.arco = arco;
-  const polvo = new THREE.BufferGeometry(); const pp = []; for (let i = 0; i < 1500; i++) pp.push((Math.random() - .5) * 16000, Math.random() * 5000, (Math.random() - .5) * 16000);
+  W.arco = { material: {} }; // (el arco de luz se reemplaza por el cielo real)
+  const polvo = new THREE.BufferGeometry(); const pp = []; for (let i = 0; i < 900; i++) pp.push((Math.random() - .5) * 14000, 30 + Math.random() * 900, (Math.random() - .5) * 14000);
   polvo.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3));
-  W.polvo = new THREE.Points(polvo, new THREE.PointsMaterial({ color: C.marfil, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.35, depthWrite: false })); scene.add(W.polvo);
+  W.polvo = new THREE.Points(polvo, new THREE.PointsMaterial({ color: '#ffd9a8', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.45, depthWrite: false })); scene.add(W.polvo);
 
   const [lim, vias, agua, upz, lug, ctx, pot] = await Promise.all(['datos/limite.json', 'datos/vias.json', 'datos/agua.json', 'datos/upz.json', 'datos/lugares.json', 'datos/contexto.json', 'datos/pot.json'].map(j));
   W.datos = { lim, vias, agua, upz, lug, ctx, pot };
@@ -129,7 +127,7 @@ export async function crearMundo(canvas) {
   const sh = new THREE.Shape(lim.pts.map(([x, z]) => new THREE.Vector2(x, -z)));
   const gl = new THREE.ExtrudeGeometry(sh, { depth: 60, bevelEnabled: false }); gl.rotateX(-Math.PI / 2); gl.translate(0, -60, 0);
   const losa = new THREE.Group();
-  losa.add(new THREE.Mesh(gl, new THREE.MeshStandardMaterial({ color: '#141613', roughness: 0.9, metalness: 0.1 })));
+  const ml = new THREE.Mesh(gl, new THREE.MeshStandardMaterial({ color: '#8a8477', roughness: 0.95, metalness: 0 })); ml.receiveShadow = true; losa.add(ml);
   const borde = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(lim.pts.map(([x, z]) => new THREE.Vector3(x, 2, z))), new THREE.LineBasicMaterial({ color: C.lima, transparent: true, opacity: 0.9 }));
   losa.add(borde); registrar('losa', losa);
 
@@ -151,7 +149,7 @@ export async function crearMundo(canvas) {
     if (!a.poly || a.poly.length < 3) return;
     const s = new THREE.Shape(a.poly.map(([x, z]) => new THREE.Vector2(x, -z)));
     const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); g.translate(0, 3, 0);
-    ag.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: C.agua, roughness: 0.15, metalness: 0.6, emissive: C.petroleo, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 })));
+    const ma = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#4d6e76', roughness: 0.08, metalness: 0.35, envMapIntensity: 1.4, transparent: true, opacity: 0.95, polygonOffset: true, polygonOffsetFactor: -3 })); ma.receiveShadow = true; ag.add(ma);
   });
   registrar('agua', ag);
 
@@ -184,6 +182,7 @@ export async function crearMundo(canvas) {
 
   /* edificios reales (edif.bin) con crecimiento en ola y tinte por foco */
   await edificios();
+  await Promise.all([suelo(W), arboles(W)]);
   redPOT(pot); red6(); propuesta(); agentes(); await especies(); capas18(); bavaria();
   return W;
 }
@@ -193,28 +192,24 @@ async function edificios() {
   const buf = await fetch(BASE + 'datos/edif.bin').then((r) => r.arrayBuffer());
   const dv = new DataView(buf), n = dv.getUint32(4, true);
   const g = new THREE.BoxGeometry(1, 1, 1); g.translate(0, 0.5, 0);
-  const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.55, metalness: 0.35, envMapIntensity: 0.6 });
+  { const ix = Array.from(g.index.array); ix.splice(18, 6); g.setIndex(ix); g.clearGroups(); } // sin cara inferior (nunca se ve)
   const U = { uSube: { value: 0 }, uOri: { value: new THREE.Vector2(-715, -168) }, uR: { value: 9000 }, uFoco: { value: new THREE.Vector2(-715, -168) }, uFR: { value: 0 }, uFC: { value: new THREE.Color(C.lima) }, uGris: { value: 0 }, uOp: { value: 1 } };
-  mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, U);
-    sh.vertexShader = 'uniform float uSube, uR, uFR; uniform vec2 uOri, uFoco; varying float vF;\n' + sh.vertexShader.replace('#include <begin_vertex>', `
-      vec2 cen = (instanceMatrix * vec4(0.,0.,0.,1.)).xz;
-      float ola = clamp((uSube * uR - distance(cen, uOri)) / 380.0, 0.0, 1.0);
-      vec3 transformed = vec3(position.x, position.y * ola, position.z);
-      vF = uFR > 0. ? 1.0 - smoothstep(uFR*0.55, uFR, distance(cen, uFoco)) : 0.0;`);
-    sh.fragmentShader = 'uniform vec3 uFC; uniform float uGris; varying float vF;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      diffuseColor.rgb = mix(diffuseColor.rgb, uFC, vF*0.85); diffuseColor.rgb *= mix(1.0, 0.35, uGris*(1.0-vF));`)
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += uFC * vF * 0.35;');
-  };
-  const m = new THREE.InstancedMesh(g, mat, n), o = new THREE.Object3D(), c = new THREE.Color(), cB = new THREE.Color('#3a3c38'), cA = new THREE.Color('#d9dbd2');
-  for (let i = 0; i < n; i++) {
-    const b = 8 + i * 12; const hh = dv.getInt16(b + 10, true) / 2;
-    o.position.set(dv.getInt16(b, true) / 2, 0, dv.getInt16(b + 2, true) / 2); o.rotation.set(0, dv.getInt16(b + 8, true) / 10000, 0);
-    o.scale.set(dv.getInt16(b + 4, true) / 2, Math.max(3, hh * 2.2), dv.getInt16(b + 6, true) / 2); o.updateMatrix(); m.setMatrixAt(i, o.matrix);
-    m.setColorAt(i, c.copy(cB).lerp(cA, Math.min(1, Math.pow(hh / 40, 0.7))));
-  }
-  m.frustumCulled = false;
-  const grp = new THREE.Group(); grp.add(m); registrar('edif', grp); W.capas.edif.userData.u = U;
+  const { mat, prof } = materialEdificios(U);
+  // teselas de 1,2 km: cada una con su esfera envolvente → la GPU descarta lo que no está en cámara
+  const T = 1200, tes = new Map();
+  for (let i = 0; i < n; i++) { const b = 8 + i * 12; const k = Math.floor(dv.getInt16(b, true) / 2 / T) + ',' + Math.floor(dv.getInt16(b + 2, true) / 2 / T); (tes.get(k) || tes.set(k, []).get(k)).push(i); }
+  const grp = new THREE.Group(), o = new THREE.Object3D(), c = new THREE.Color();
+  tes.forEach((ids) => {
+    const m = new THREE.InstancedMesh(g, mat, ids.length);
+    ids.forEach((i, j) => {
+      const b = 8 + i * 12; const hh = dv.getInt16(b + 10, true) / 2;
+      o.position.set(dv.getInt16(b, true) / 2, 0, dv.getInt16(b + 2, true) / 2); o.rotation.set(0, dv.getInt16(b + 8, true) / 10000, 0);
+      o.scale.set(dv.getInt16(b + 4, true) / 2, Math.max(3, hh), dv.getInt16(b + 6, true) / 2); o.updateMatrix(); m.setMatrixAt(j, o.matrix);
+      colorEdificio(hh, ((i * 2654435761) % 1000) / 1000, c); m.setColorAt(j, c);
+    });
+    m.computeBoundingSphere(); m.castShadow = true; m.receiveShadow = true; m.customDepthMaterial = prof; grp.add(m);
+  });
+  registrar('edif', grp); W.capas.edif.userData.u = U;
   mat.transparent = false; // los edificios no se funden: crecen (uSube)
 }
 
@@ -395,11 +390,11 @@ async function especies() {
   const sprite = (src, s) => { const t = tl.load(BASE + 'esp/' + src + '.png'); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(s, s * 0.9, 1); return sp; };
   const parche = W.parches || [new THREE.Vector3()];
   const crear = (src, n, s, alt) => { const arr = []; for (let i = 0; i < n; i++) { const sp = sprite(src, s); const p = parche[(i * 3 + src.length) % parche.length]; sp.position.set(p.x + (Math.random() - .5) * 600, alt + Math.random() * 120, p.z + (Math.random() - .5) * 600); sp.userData = { base: sp.position.clone(), f: Math.random() * 6 }; grp.add(sp); arr.push(sp); } return arr; };
-  W.esp.mirla = crear('mirla', 10, 150, 160); W.esp.tingua = crear('tingua_bogotana', 8, 140, 50); W.esp.colibri = crear('colibri', 6, 110, 200);
+  W.esp.mirla = crear('mirla', 10, 42, 60); W.esp.tingua = crear('tingua_bogotana', 8, 36, 12); W.esp.colibri = crear('colibri', 6, 30, 70);
   try {
     const gltf = await new GLTFLoader().loadAsync(BASE + 'esp/abeja.glb');
     W.esp.abeja = [];
-    for (let i = 0; i < 14; i++) { const a = gltf.scene.clone(); const b = new THREE.Box3().setFromObject(a); const k = 70 / Math.max(1e-3, b.getSize(new THREE.Vector3()).length()); a.scale.setScalar(k); const p = parche[i % parche.length]; a.position.set(p.x + (Math.random() - .5) * 500, 120 + Math.random() * 80, p.z + (Math.random() - .5) * 500); a.userData = { base: a.position.clone(), f: Math.random() * 6 }; grp.add(a); W.esp.abeja.push(a); }
+    for (let i = 0; i < 14; i++) { const a = gltf.scene.clone(); const b = new THREE.Box3().setFromObject(a); const k = 26 / Math.max(1e-3, b.getSize(new THREE.Vector3()).length()); a.scale.setScalar(k); const p = parche[i % parche.length]; a.position.set(p.x + (Math.random() - .5) * 400, 25 + Math.random() * 30, p.z + (Math.random() - .5) * 400); a.userData = { base: a.position.clone(), f: Math.random() * 6 }; grp.add(a); W.esp.abeja.push(a); }
   } catch (e) { W.esp.abeja = []; }
   registrar('especies', grp);
 }

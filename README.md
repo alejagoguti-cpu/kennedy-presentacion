@@ -27,3 +27,10 @@ La URL guarda la frase actual (`#57`): al recargar se vuelve al mismo punto.
 ## Publicar
 `npm install` · `npx vite build` (sale en `docs/`) · commit + push. Pages: rama `main`, carpeta `/docs`.
 Probar: `npx vite preview --port 4330` y `node tools/cap.mjs <carpeta> 1,s8`.
+
+## Realismo y rendimiento
+- Hora dorada sobre Bogotá con los fotogramas clave de cielo del simulador: nubes, horizonte cálido, cerros orientales y niebla.
+- Edificios con altura real, ladrillo y concreto, cubiertas, ventanas (algunas encendidas) y oclusión al pie. Las calles tienen ancho según su jerarquía, los parques reales llevan pasto y hay 119.886 árboles reales. El agua y el cromo reflejan el cielo.
+- Optimización: edificios y árboles se dibujan como instancias agrupadas en teselas de 1,2–1,6 km, así la GPU descarta lo que no está en cámara. Los edificios no tienen cara inferior. Los árboles solo aparecen cuando se distinguen y la sombra solo cubre el área visible. Las texturas son de 512 px y los datos van en binario compacto (`tools/realismo_build.mjs`).
+- Un gobernador mide el intervalo real entre cuadros y, si la máquina no da, baja la resolución, luego la sombra y luego las sombras de los árboles.
+- `node tools/rend.mjs` (con `npx vite preview --port 4330` corriendo) mide los ms por cuadro, las llamadas de dibujo y los triángulos.
