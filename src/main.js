@@ -1,0 +1,225 @@
+import gsap from 'gsap';
+import * as THREE from 'three';
+import { W, crearMundo, capa, uni, moverAgentes, moverEspecies, moverBavaria, LUG, COL_P, NOM_P } from './mundo.js';
+import * as UI from './ui.js';
+import { R, D, tw, twf } from './ui.js';
+import { transicion } from './trans.js';
+import { CAPITULOS } from './guion.js';
+import './estilo.css';
+
+const canal = new BroadcastChannel('kennedy-presentacion');
+const esPresentadora = new URLSearchParams(location.search).has('presentador');
+
+/* ======================================================================= lista plana de frases */
+const BEATS = [];
+CAPITULOS.forEach((c, ci) => c.beats.forEach((b, bi) => BEATS.push({ ...b, ci, bi })));
+const TOTAL = BEATS.length;
+
+
+/* ======================================================================= API para el guion (X) */
+const ESTACIONES = {
+  alto: { p: [2200, 7600, 7000], o: [0, 0, 300] },
+  portada: { p: [-4200, 3200, 5200], o: [-500, 200, 0] },
+  pot: { p: [0, 3300, 7400], o: [0, 1500, 0] },
+  capas: { p: [6200, 3600, 6200], o: [0, 1300, 0] },
+  red6: { p: [0, 3400, 4300], o: [0, 950, 0] },
+  mapa: { p: [0, 8800, 3600], o: [0, 0, 200] },
+  cora: { p: [-715 + 1100, 1700, -168 + 2300], o: [-715, 0, -168] },
+  coraCerca: { p: [-715 + 500, 650, -168 + 950], o: [-715, 60, -168] },
+  mariapaz: { p: [-533 + 700, 900, -385 + 1300], o: [-533, 0, -385] },
+  bav: { p: [2119 + 1500, 1600, -1067 + 2100], o: [2119, 100, -1067] },
+  bavCerca: { p: [2119 + 700, 750, -1067 + 1000], o: [2119, 150, -1067] },
+  oeste: { p: [-1200, 4300, 5600], o: [-1300, 200, -600] },
+  humedal: { p: [-1200, 1600, 2600], o: [-900, 0, 900] },
+  lejos: { p: [9000, 26000, 26000], o: [0, 0, 0] },
+};
+const camT = { p: new THREE.Vector3(...ESTACIONES.portada.p), o: new THREE.Vector3(...ESTACIONES.portada.o) };
+function cam(nombre, d = 2.2) {
+  const e = typeof nombre === 'string' ? ESTACIONES[nombre] : nombre;
+  if (R.rapido || d === 0) { camT.p.set(...e.p); camT.o.set(...e.o); return; }
+  gsap.to(camT.p, { x: e.p[0], y: e.p[1], z: e.p[2], duration: d, ease: 'expo.inOut' });
+  gsap.to(camT.o, { x: e.o[0], y: e.o[1], z: e.o[2], duration: d, ease: 'expo.inOut' });
+}
+const uTo = (nombre, k, v, d = 1, ease = 'expo.out') => { const u = uni(nombre); if (u?.[k]) tw(u[k], { value: v, duration: D(d), ease }); };
+const X = {
+  ...UI, R, D, tw, twf, gsap, W, LUG, COL_P, NOM_P, cam, uTo,
+  capa: (n, on = true, d = 0.9) => capa(n, on, D(d)),
+  capas: (lista, on = true) => lista.forEach((n) => capa(n, on, D(0.9))),
+  /** edificios: crecen en ola desde un origen */
+  sube(v = 1, ori = LUG.corabastos, d = 3) { const u = W.capas.edif.userData.u; u.uOri.value.set(ori[0], ori[1]); tw(u.uSube, { value: v, duration: D(d), ease: 'power2.out' }); },
+  /** tiñe los edificios alrededor de un foco */
+  foco(p, r = 900, color = '#C7FF27', d = 1.2) { const u = W.capas.edif.userData.u; if (p) u.uFoco.value.set(p[0], p[1]); u.uFC.value.set(color); tw(u.uFR, { value: r, duration: D(d), ease: 'expo.out' }); },
+  sinFoco(d = 0.8) { tw(W.capas.edif.userData.u.uFR, { value: 0, duration: D(d) }); },
+  gris(v = 1, d = 1) { tw(W.capas.edif.userData.u.uGris, { value: v, duration: D(d) }); },
+  aparecer(nombre, v = 1, d = 1.6) { capa(nombre, true, D(0.2)); uTo(nombre, 'uAp', v, d, 'steps(12)'); },
+  /** red de seis problemas */
+  arista(i, d = 1.1) { const t = W.red6.tubos[i]; const p = { v: t.geometry.drawRange.count === Infinity ? 0 : t.geometry.drawRange.count }; tw(p, { v: t.userData.total, duration: D(d), ease: 'steps(14)', onUpdate: () => t.geometry.setDrawRange(0, Math.floor(p.v / 3) * 3) }); if (R.rapido) t.geometry.setDrawRange(0, t.userData.total); },
+  nodo6(k, s, d = 0.8) { const m = W.red6.nod[k]; tw(m.scale, { x: s, y: s, z: s, duration: D(d), ease: 'back.out(2)' }); },
+  aSuelo(on = true, d = 2.4) { Object.entries(W.red6.nod).forEach(([k, m], i) => { const dst = on ? W.red6Suelo[k] : W.red6.P[k]; tw(m.position, { x: dst.x, y: dst.y, z: dst.z, duration: D(d), ease: 'expo.inOut', delay: D(i * 0.08) }); }); W.red6.tubos.forEach((t) => tw(t.material, { opacity: on ? 0 : 0.85, duration: D(0.6) })); },
+  /** UPZ */
+  upzAlto(on = true, k = 1, d = 1.6) { Object.values(W.upz).forEach(({ m }, i) => tw(m.scale, { y: on ? m.userData.h * k : 0.001, duration: D(d), ease: 'steps(10)', delay: D(i * 0.05) })); },
+  /** mercados distribuidos (esquema) */
+  mercados(on = true, cob = 1) { W.mercados.forEach((g, i) => { const { ar, disco, n } = g.userData; tw([ar.scale, disco.scale], { x: on ? cob : 0.001, y: on ? cob : 0.001, z: 1, duration: D(1.1), ease: 'expo.out', delay: D(i * 0.09) }); tw(n.scale, { x: on ? 1 : 0.001, y: on ? 1 : 0.001, z: on ? 1 : 0.001, duration: D(0.6), ease: 'back.out(2)', delay: D(i * 0.09) }); }); if (on) capa('mercados', true, D(0.3)); },
+  estaciones(on = true) { capa('estaciones', true, D(0.2)); W.estaciones.forEach((g, i) => tw(g.scale, { x: on ? 1 : 0.001, y: on ? 1 : 0.001, z: on ? 1 : 0.001, duration: D(0.7), ease: 'back.out(2)', delay: D(i * 0.12) })); },
+  corredor(v = 1, d = 2.4) { capa('corredores', true, D(0.2)); const t = W.corredor; const p = { v: t.geometry.drawRange.count === Infinity ? 0 : t.geometry.drawRange.count }; tw(p, { v: v * t.userData.total, duration: D(d), ease: 'steps(20)', onUpdate: () => t.geometry.setDrawRange(0, Math.floor(p.v / 3) * 3) }); if (R.rapido) t.geometry.setDrawRange(0, Math.floor(v * t.userData.total / 3) * 3); },
+  capas18(modo) { // 'apila' | 'nueve' | 'fuera'
+    capa('capas18', modo !== 'fuera', D(0.6));
+    W.capasPl.forEach((m, i) => {
+      if (modo === 'apila') twf(m.position, { y: -200 }, { y: m.userData.y0, duration: D(0.6), ease: 'expo.out', delay: D(i * 0.08) });
+      if (modo === 'nueve') { const par = Math.floor(i / 2); tw(m.position, { y: 300 + par * 240, duration: D(1.2), ease: 'steps(8)', delay: D(par * 0.05) }); }
+    });
+  },
+  agentesVel(v) { if (R.rapido) W.agentes.vel = v; else gsap.to(W.agentes, { vel: v, duration: 1.5 }); },
+  temblor() { if (R.rapido) return; gsap.fromTo('#mundo, #escena', { x: 0 }, { x: () => (Math.random() - .5) * 30, y: () => (Math.random() - .5) * 20, duration: 0.06, repeat: 8, yoyo: true, ease: 'steps(1)', clearProps: 'transform' }); },
+};
+
+/* ======================================================================= estado base de cada capítulo */
+const TODAS = ['losa', 'edif', 'vias', 'vias-prin', 'flujos', 'agua', 'upz', 'pA', 'pB', 'pC', 'pD', 'pE', 'pF', 'iso', 'metro', 'red-pot', 'red6', 'mercados', 'corabastos', 'estaciones', 'corredores', 'agentes', 'especies', 'capas18', 'bavaria'];
+function reiniciarMundo() {
+  TODAS.forEach((n) => capa(n, false, 0));
+  [...'ABCDEF'].forEach((k) => { const u = uni('p' + k); if (u) { u.uAp.value = 0; u.uS.value = k === 'F' ? 90 : k === 'B' ? 10 : 22; } });
+  const u = W.capas.edif.userData.u; u.uFR.value = 0; u.uGris.value = 0;
+  Object.values(W.upz).forEach(({ m }) => (m.scale.y = 0.001));
+  W.red6.tubos.forEach((t) => { t.geometry.setDrawRange(0, 0); t.material.opacity = 0.85; });
+  Object.entries(W.red6.nod).forEach(([k, m]) => { m.position.copy(W.red6.P[k]); m.scale.setScalar(k === 'F' ? 210 : 140); });
+  W.mercados.forEach((g) => { g.userData.ar.scale.setScalar(0.001); g.userData.disco.scale.setScalar(0.001); g.userData.n.scale.setScalar(0.001); });
+  W.estaciones.forEach((g) => g.scale.setScalar(0.001));
+  W.corredor.geometry.setDrawRange(0, 0);
+  W.capasPl.forEach((m) => (m.position.y = m.userData.y0));
+  W.pot.nodos.forEach((m) => m.scale.setScalar(m.userData.r));
+  W.agentes.vel = 1;
+}
+function entrarCapitulo(ci) {
+  const c = CAPITULOS[ci];
+  reiniciarMundo();
+  UI.limpiarTodo();
+  capa('losa', true, 0); capa('edif', true, 0); capa('vias', true, 0);
+  W.capas.edif.userData.u.uSube.value = 1;
+  c.base?.(X);
+  if (c.cam) cam(c.cam, 0);
+  document.querySelector('#hud-sec b').textContent = c.n; document.querySelector('#hud-sec span').textContent = c.nombre;
+}
+
+/* ======================================================================= navegación */
+let idx = -1, ocupado = false;
+async function correrBeat(n, conTransicion) {
+  const b = BEATS[n]; const c = CAPITULOS[b.ci];
+  if (b.bi === 0) {
+    if (conTransicion && !R.rapido && n > 0) { UI.limpiar(); await new Promise((r) => setTimeout(r, 260)); await transicion(c.tr || 'pliegue', () => { entrarCapitulo(b.ci); b.a?.(X); }); return; }
+    else entrarCapitulo(b.ci);
+  }
+  b.a?.(X);
+}
+async function ir(n, animado = true) {
+  n = Math.max(0, Math.min(TOTAL - 1, n));
+  if (animado && n === idx + 1) { ocupado = true; idx = n; publicar(); await correrBeat(n, true); ocupado = false; return; }
+  // salto: se reconstruye el capítulo de inmediato hasta la frase pedida
+  const b = BEATS[n]; const ini = n - b.bi;
+  gsap.globalTimeline.clear();
+  // estado exacto hasta la frase anterior; la frase pedida se anima una sola vez
+  R.rapido = true;
+  for (let k = ini; k < n; k++) await correrBeat(k, false);
+  R.rapido = !animado;
+  await correrBeat(n, false);
+  R.rapido = false; idx = n; publicar();
+}
+const sig = () => { if (!ocupado) ir(idx + 1); };
+const ant = () => { if (!ocupado && idx > 0) ir(idx - 1); };
+
+function publicar() {
+  const b = BEATS[idx], s = BEATS[idx + 1]; const c = CAPITULOS[b.ci];
+  document.getElementById('hud-n').textContent = String(idx + 1).padStart(3, '0') + ' / ' + TOTAL;
+  document.querySelector('#hud-prog i').style.width = ((idx + 1) / TOTAL) * 100 + '%';
+  document.getElementById('subtitulo').textContent = b.t;
+  history.replaceState(null, '', '#' + (idx + 1));
+  canal.postMessage({ tipo: 'estado', n: idx, total: TOTAL, cap: c.n + ' · ' + c.nombre, ahora: b.t, sig: s ? s.t : '— fin —', sigCap: s && s.bi === 0 ? CAPITULOS[s.ci].n + ' · ' + CAPITULOS[s.ci].nombre : '' });
+}
+
+/* ======================================================================= modo automático (ensayo) */
+let auto = null;
+function alternarAuto() {
+  if (auto) { clearTimeout(auto); auto = null; modoHUD(); return; }
+  const paso = () => { if (idx >= TOTAL - 1) { auto = null; modoHUD(); return; } sig(); const pal = BEATS[idx + 1]?.t.split(/\s+/).length || 8; auto = setTimeout(paso, Math.max(2600, pal * 400)); };
+  paso(); modoHUD();
+}
+function modoHUD() { document.getElementById('hud-modo').textContent = [W.stop ? 'STOP-MOTION 12 FPS' : 'FLUIDO', auto ? 'AUTO' : ''].filter(Boolean).join(' · '); }
+
+/* ======================================================================= bucle: 12 fps escalonados + vida ambiental */
+const grano = document.getElementById('grano');
+function texturaGrano() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); const d = x.createImageData(256, 256);
+  for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); grano.style.backgroundImage = `url(${c.toDataURL()})`;
+}
+function cuadro() {
+  const t = gsap.ticker.time; W.t = t;
+  const dt = W.stop ? 1 / 12 : gsap.ticker.deltaRatio() / 60;
+  // la cámara nunca se detiene: órbita lenta + respiración alrededor del objetivo
+  const rel = camT.p.clone().sub(camT.o);
+  rel.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(t * 0.06) * 0.22 + Math.sin(t * 0.017) * 0.15);
+  rel.multiplyScalar(1 + Math.sin(t * 0.33) * 0.015);
+  W.cam.position.copy(camT.o).add(rel);
+  const ob = camT.o.clone();
+  if (W.stop) { const k = rel.length() * 0.0009; W.cam.position.x += (Math.random() - .5) * k; W.cam.position.y += (Math.random() - .5) * k; ob.x += (Math.random() - .5) * k; }
+  W.cam.lookAt(ob);
+  ['vias-prin', 'flujos', 'iso', 'metro', 'red-pot', 'agentes', 'pA', 'pB', 'pC', 'pD', 'pE', 'pF'].forEach((n) => { const u = uni(n); if (u?.uT) u.uT.value = t; });
+  moverAgentes(dt); moverEspecies(t); moverBavaria(t);
+  W.estaciones?.forEach((g) => { g.userData.a.rotation.z = t * 0.8; g.userData.b.rotation.y = t * 1.3; });
+  W.coraAros?.forEach((a, i) => (a.rotation.z = t * (i ? -0.2 : 0.3)));
+  W.mercados?.forEach((g, i) => (g.userData.n.rotation.y = t * 1.2 + i));
+  W.pot?.grp && (W.pot.grp.rotation.y = t * 0.04);
+  W.red6?.grp && (W.red6.grp.rotation.y = Math.sin(t * 0.15) * 0.12);
+  W.arco.material.opacity = 0.25 + Math.sin(t * 1.05) * 0.12; W.polvo.rotation.y = t * 0.01;
+  W.r.render(W.scene, W.cam);
+  UI.proyectarEts();
+  // hervor stop-motion de la capa DOM y grano que cambia cada cuadro
+  if (W.stop) { document.getElementById('escena').style.transform = `translate(${(Math.random() - .5) * 2}px, ${(Math.random() - .5) * 2}px) rotate(${(Math.random() - .5) * 0.12}deg)`; grano.style.backgroundPosition = `${(Math.random() * 256) | 0}px ${(Math.random() * 256) | 0}px`; }
+}
+function alternarStop() { W.stop = !W.stop; gsap.ticker.fps(W.stop ? 12 : 60); if (!W.stop) document.getElementById('escena').style.transform = ''; modoHUD(); }
+
+/* ======================================================================= arranque */
+async function iniciar() {
+  texturaGrano();
+  await crearMundo(document.getElementById('mundo'));
+  gsap.ticker.fps(12); gsap.ticker.add(cuadro); modoHUD();
+  window.__k = { ir, sig, ant, BEATS, X, W };
+  const desde = parseInt(location.hash.slice(1), 10);
+  const empezar = () => { document.getElementById('inicio').remove(); document.body.classList.add('presentando'); if (desde > 1) ir(desde - 1, false); else ir(0); };
+  document.getElementById('empezar').onclick = empezar;
+  if (new URLSearchParams(location.search).has('directo')) empezar();
+  addEventListener('keydown', (e) => {
+    if (document.getElementById('inicio')) { if (e.key === 'Enter' || e.key === ' ') empezar(); return; }
+    const k = e.key;
+    if (['ArrowRight', 'PageDown', ' ', 'Enter', 'ArrowDown'].includes(k)) { e.preventDefault(); sig(); }
+    else if (['ArrowLeft', 'PageUp', 'ArrowUp', 'Backspace'].includes(k)) { e.preventDefault(); ant(); }
+    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else if (k === 's' || k === 'S') alternarStop();
+    else if (k === 't' || k === 'T') document.body.classList.toggle('subs');
+    else if (k === 'a' || k === 'A') alternarAuto();
+    else if (k === 'p' || k === 'P') window.open(location.pathname + '?presentador', 'presentadora', 'width=1100,height=700');
+    else if (k === 'Home') ir(0, false);
+    else if (k === 'b' || k === 'B') document.getElementById('escena').style.opacity = document.getElementById('escena').style.opacity === '0' ? '' : '0';
+  });
+  addEventListener('click', (e) => { if (!document.getElementById('inicio') && e.button === 0) sig(); });
+  addEventListener('contextmenu', (e) => { e.preventDefault(); ant(); });
+  canal.onmessage = (m) => { if (m.data.cmd === 'sig') sig(); if (m.data.cmd === 'ant') ant(); if (m.data.cmd === 'pedir' && idx >= 0) publicar(); if (m.data.cmd === 'ir') ir(m.data.n, false); };
+}
+
+/* ======================================================================= vista de presentadora */
+function vistaPresentadora() {
+  document.body.className = 'presentadora';
+  document.body.innerHTML = `<div class="pres"><div class="pres-cab"><span id="pc"></span><span class="pres-reloj" id="pr">00:00</span><span><b id="pn"></b></span></div>
+    <div class="pres-ahora" id="pa">Esperando la presentación…</div><div class="pres-sig" id="ps"></div>
+    <div class="pres-pie"><button id="bA">← Anterior</button><button class="sig" id="bS">Siguiente frase →</button></div></div>`;
+  let t0 = null;
+  canal.onmessage = (m) => { const d = m.data; if (d.tipo !== 'estado') return; if (!t0) t0 = Date.now();
+    document.getElementById('pc').textContent = d.cap; document.getElementById('pn').textContent = (d.n + 1) + ' / ' + d.total;
+    document.getElementById('pa').textContent = d.ahora; document.getElementById('ps').textContent = (d.sigCap ? '[' + d.sigCap + '] ' : '') + d.sig; };
+  setInterval(() => { if (!t0) return; const s = Math.floor((Date.now() - t0) / 1000); document.getElementById('pr').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 500);
+  document.getElementById('bS').onclick = () => canal.postMessage({ cmd: 'sig' });
+  document.getElementById('bA').onclick = () => canal.postMessage({ cmd: 'ant' });
+  addEventListener('keydown', (e) => { if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); canal.postMessage({ cmd: 'sig' }); } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); canal.postMessage({ cmd: 'ant' }); } });
+  canal.postMessage({ cmd: 'pedir' });
+}
+
+if (esPresentadora) vistaPresentadora(); else iniciar();
