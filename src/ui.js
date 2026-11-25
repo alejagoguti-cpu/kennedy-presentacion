@@ -186,3 +186,34 @@ export function proyectarEts() {
     e.style.transform = `translate(${(v3.x * 0.5 + 0.5) * innerWidth}px, ${(-v3.y * 0.5 + 0.5) * innerHeight}px)`;
   });
 }
+
+/* ---------- matriz de adyacencia (fila = origen, columna = efecto) ---------- */
+export function matriz(id, o) {
+  const ks = o.nodos, n = ks.length;
+  const cab = `<div class="mx-c h"></div>${ks.map((k) => `<div class="mx-c h" style="color:${o.colores[k]}">${k}</div>`).join('')}<div class="mx-c h g">k<sub>out</sub></div>`;
+  const filas = ks.map((a) => `<div class="mx-c h" style="color:${o.colores[a]}">${a}</div>${ks.map((b) => `<div class="mx-c" data-c="${a}${b}">${a === b ? '·' : ''}</div>`).join('')}<div class="mx-c g" data-out="${a}">0</div>`).join('');
+  const pie = `<div class="mx-c h g">k<sub>in</sub></div>${ks.map((b) => `<div class="mx-c g" data-in="${b}">0</div>`).join('')}<div class="mx-c g"></div>`;
+  const e = document.createElement('div'); e.className = 'vid matriz';
+  e.innerHTML = `<div class="k mono">Matriz de adyacencia · fila = origen → columna = efecto</div><div class="mx" style="grid-template-columns:repeat(${n + 2},1fr)">${cab}${filas}${pie}</div><div class="mx-ref">${ks.map((k) => `<span><b style="color:${o.colores[k]}">${k}</b> ${o.nombres[k]}</span>`).join('')}</div>`;
+  e.style.position = 'absolute'; ['left', 'top', 'right', 'bottom', 'width'].forEach((k) => { if (o[k] !== undefined) e.style[k] = typeof o[k] === 'number' ? o[k] + 'vw' : o[k]; });
+  poner(id, e); entra3D(e, 0.8);
+  return e;
+}
+export function matrizMarcar(id, a, b) {
+  const e = els.get(id); if (!e) return; const c = e.querySelector(`[data-c="${a}${b}"]`); if (!c || c.classList.contains('on')) return;
+  c.classList.add('on'); c.textContent = '1';
+  const inc = (sel) => { const x = e.querySelector(sel); x.textContent = String(+x.textContent + 1); twf(x, { scale: 1.6, color: '#C7FF27' }, { scale: 1, duration: D(0.4), ease: 'steps(4)' }); };
+  inc(`[data-out="${a}"]`); inc(`[data-in="${b}"]`);
+  twf(c, { scale: 0, rotation: 90 }, { scale: 1, rotation: 0, duration: D(0.45), ease: 'back.out(3)', delay: D(0.6) });
+}
+export function resaltarGrado(id, k) { const e = els.get(id); if (!e) return; e.querySelectorAll(`[data-out="${k}"],[data-in="${k}"],[data-c^="${k}"],[data-c$="${k}"]`).forEach((x) => x.classList.add('hl')); }
+
+/* ---------- tabla de métricas de red ---------- */
+export function metricasRed(id, o) {
+  const e = document.createElement('div'); e.className = 'vid metr';
+  e.innerHTML = `<div class="k mono">${o.titulo}</div>${o.resumen ? `<div class="metr-res">${o.resumen.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>` : ''}${o.filas ? `<table><thead><tr>${o.cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${o.filas.map((f) => `<tr>${f.map((x, i) => `<td${i ? ' class="n"' : ''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table>` : ''}${o.nota ? `<div class="metr-nota">${o.nota}</div>` : ''}`;
+  e.style.position = 'absolute'; ['left', 'top', 'right', 'bottom', 'width'].forEach((k) => { if (o[k] !== undefined) e.style[k] = typeof o[k] === 'number' ? o[k] + 'vw' : o[k]; });
+  poner(id, e); entra3D(e, 0.8, { delay: D(o.delay || 0) });
+  twf(e.querySelectorAll('tbody tr, .metr-res > div'), { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: D(0.4), ease: 'steps(5)', stagger: D(0.1), delay: D(0.4 + (o.delay || 0)) });
+  return e;
+}

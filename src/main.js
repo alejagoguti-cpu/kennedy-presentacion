@@ -1,9 +1,10 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
-import { W, crearMundo, capa, uni, moverAgentes, moverEspecies, moverBavaria, LUG, COL_P, NOM_P } from './mundo.js';
+import { W, crearMundo, capa, uni, moverAgentes, moverEspecies, moverBavaria, LUG, COL_P, NOM_P, CAPAS_POT } from './mundo.js';
 import * as UI from './ui.js';
 import { R, D, tw, twf } from './ui.js';
 import { transicion } from './trans.js';
+import { actualizarCarto, avisoZoom } from './carto.js';
 import { CAPITULOS } from './guion.js';
 import './estilo.css';
 
@@ -18,31 +19,44 @@ const TOTAL = BEATS.length;
 
 /* ======================================================================= API para el guion (X) */
 const ESTACIONES = {
-  alto: { p: [2200, 7600, 7000], o: [0, 0, 300] },
+  alto: { p: [2200, 7600, 7000], o: [0, 0, 300], nom: 'Localidad de Kennedy' },
   portada: { p: [-4200, 3200, 5200], o: [-500, 200, 0] },
-  pot: { p: [0, 3300, 7400], o: [0, 1500, 0] },
+  pot: { p: [0, 3300, 6200], o: [0, 800, 0], nom: 'Red multicapa del POT' },
   capas: { p: [6200, 3600, 6200], o: [0, 1300, 0] },
-  red6: { p: [0, 3400, 4300], o: [0, 950, 0] },
-  mapa: { p: [0, 8800, 3600], o: [0, 0, 200] },
-  cora: { p: [-715 + 1100, 1700, -168 + 2300], o: [-715, 0, -168] },
-  coraCerca: { p: [-715 + 500, 650, -168 + 950], o: [-715, 60, -168] },
-  mariapaz: { p: [-533 + 700, 900, -385 + 1300], o: [-533, 0, -385] },
-  bav: { p: [2119 + 1500, 1600, -1067 + 2100], o: [2119, 100, -1067] },
-  bavCerca: { p: [2119 + 700, 750, -1067 + 1000], o: [2119, 150, -1067] },
-  oeste: { p: [-1200, 4300, 5600], o: [-1300, 200, -600] },
-  humedal: { p: [-1200, 1600, 2600], o: [-900, 0, 900] },
-  lejos: { p: [9000, 26000, 26000], o: [0, 0, 0] },
+  red6: { p: [450, 3400, 4300], o: [450, 950, 0], nom: 'Red de seis problemas' },
+  mapa: { p: [0, 8800, 3600], o: [0, 0, 200], nom: 'Conectografía · Kennedy' },
+  cora: { p: [-715 + 1100, 1700, -168 + 2300], o: [-715, 0, -168], nom: 'Corabastos' },
+  coraCerca: { p: [-715 + 500, 650, -168 + 950], o: [-715, 60, -168], nom: 'Corabastos' },
+  mariapaz: { p: [-533 + 700, 900, -385 + 1300], o: [-533, 0, -385], nom: 'María Paz' },
+  bav: { p: [2119 + 1500, 1600, -1067 + 2100], o: [2119, 100, -1067], nom: 'Bavaria' },
+  bavCerca: { p: [2119 + 700, 750, -1067 + 1000], o: [2119, 150, -1067], nom: 'Bavaria · naves' },
+  oeste: { p: [-1200, 4300, 5600], o: [-1300, 200, -600], nom: 'Patio Bonito · Tintal Norte' },
+  humedal: { p: [-1200, 1600, 2600], o: [-900, 0, 900], nom: 'Humedales y corredores' },
+  lejos: { p: [9000, 26000, 26000], o: [0, 0, 0], nom: 'Bogotá' },
 };
 const camT = { p: new THREE.Vector3(...ESTACIONES.portada.p), o: new THREE.Vector3(...ESTACIONES.portada.o) };
+/** cámara con convención de zoom: si el destino está lejos → zoom out, desplazamiento, zoom in */
 function cam(nombre, d = 2.2) {
   const e = typeof nombre === 'string' ? ESTACIONES[nombre] : nombre;
+  gsap.killTweensOf(camT.p); gsap.killTweensOf(camT.o);
   if (R.rapido || d === 0) { camT.p.set(...e.p); camT.o.set(...e.o); return; }
-  gsap.to(camT.p, { x: e.p[0], y: e.p[1], z: e.p[2], duration: d, ease: 'expo.inOut' });
-  gsap.to(camT.o, { x: e.o[0], y: e.o[1], z: e.o[2], duration: d, ease: 'expo.inOut' });
+  const dO = new THREE.Vector3(...e.o), dP = new THREE.Vector3(...e.p);
+  const d0 = camT.p.distanceTo(camT.o), d1 = dP.distanceTo(dO), salto = camT.o.distanceTo(dO);
+  const ir2 = (p, o, t, ease, delay = 0) => { gsap.to(camT.p, { x: p.x, y: p.y, z: p.z, duration: t, ease, delay }); gsap.to(camT.o, { x: o.x, y: o.y, z: o.z, duration: t, ease, delay }); };
+  if (salto > 1800) {
+    const mO = camT.o.clone().lerp(dO, 0.5), alt = Math.max(d0, d1, salto * 1.15);
+    const dir = camT.p.clone().sub(camT.o).normalize().lerp(dP.clone().sub(dO).normalize(), 0.5).normalize();
+    const mP = mO.clone().add(dir.multiplyScalar(alt));
+    avisoZoom('out'); ir2(mP, mO, d * 0.45, 'power2.inOut');
+    gsap.delayedCall(d * 0.45, () => avisoZoom('in', e.nom || '')); ir2(dP, dO, d * 0.6, 'expo.out', d * 0.45);
+  } else {
+    if (d1 < d0 * 0.8) avisoZoom('in', e.nom || ''); else if (d1 > d0 * 1.25) avisoZoom('out', e.nom || '');
+    ir2(dP, dO, d, 'expo.inOut');
+  }
 }
 const uTo = (nombre, k, v, d = 1, ease = 'expo.out') => { const u = uni(nombre); if (u?.[k]) tw(u[k], { value: v, duration: D(d), ease }); };
 const X = {
-  ...UI, R, D, tw, twf, gsap, W, LUG, COL_P, NOM_P, cam, uTo,
+  ...UI, R, D, tw, twf, gsap, W, LUG, COL_P, NOM_P, CAPAS_POT, cam, uTo,
   capa: (n, on = true, d = 0.9) => capa(n, on, D(d)),
   capas: (lista, on = true) => lista.forEach((n) => capa(n, on, D(0.9))),
   /** edificios: crecen en ola desde un origen */
@@ -53,9 +67,9 @@ const X = {
   gris(v = 1, d = 1) { tw(W.capas.edif.userData.u.uGris, { value: v, duration: D(d) }); },
   aparecer(nombre, v = 1, d = 1.6) { capa(nombre, true, D(0.2)); uTo(nombre, 'uAp', v, d, 'steps(12)'); },
   /** red de seis problemas */
-  arista(i, d = 1.1) { const t = W.red6.tubos[i]; const p = { v: t.geometry.drawRange.count === Infinity ? 0 : t.geometry.drawRange.count }; tw(p, { v: t.userData.total, duration: D(d), ease: 'steps(14)', onUpdate: () => t.geometry.setDrawRange(0, Math.floor(p.v / 3) * 3) }); if (R.rapido) t.geometry.setDrawRange(0, t.userData.total); },
-  nodo6(k, s, d = 0.8) { const m = W.red6.nod[k]; tw(m.scale, { x: s, y: s, z: s, duration: D(d), ease: 'back.out(2)' }); },
-  aSuelo(on = true, d = 2.4) { Object.entries(W.red6.nod).forEach(([k, m], i) => { const dst = on ? W.red6Suelo[k] : W.red6.P[k]; tw(m.position, { x: dst.x, y: dst.y, z: dst.z, duration: D(d), ease: 'expo.inOut', delay: D(i * 0.08) }); }); W.red6.tubos.forEach((t) => tw(t.material, { opacity: on ? 0 : 0.85, duration: D(0.6) })); },
+  arista(i, d = 1.1) { const t = W.red6.tubos[i]; const pu = t.userData.punta; tw(pu.scale, { x: 1, y: 1, z: 1, duration: D(0.3), ease: 'back.out(3)', delay: D(d * 0.9) }); UI.matrizMarcar('adj', t.userData.a, t.userData.b); const p = { v: t.geometry.drawRange.count === Infinity ? 0 : t.geometry.drawRange.count }; tw(p, { v: t.userData.total, duration: D(d), ease: 'steps(14)', onUpdate: () => t.geometry.setDrawRange(0, Math.floor(p.v / 3) * 3) }); if (R.rapido) t.geometry.setDrawRange(0, t.userData.total); },
+  nodo6(k, f, d = 0.8) { const m = W.red6.nod[k]; const s = m.userData.r * f; tw(m.scale, { x: s, y: s, z: s, duration: D(d), ease: 'back.out(2)' }); },
+  aSuelo(on = true, d = 2.4) { Object.entries(W.red6.nod).forEach(([k, m], i) => { const dst = on ? W.red6Suelo[k] : W.red6.P[k]; tw(m.position, { x: dst.x, y: dst.y, z: dst.z, duration: D(d), ease: 'expo.inOut', delay: D(i * 0.08) }); }); W.red6.tubos.forEach((t) => { tw(t.material, { opacity: on ? 0 : 0.9, duration: D(0.6) }); tw(t.userData.punta.material, { opacity: on ? 0 : 0.95, duration: D(0.6) }); }); },
   /** UPZ */
   upzAlto(on = true, k = 1, d = 1.6) { Object.values(W.upz).forEach(({ m }, i) => tw(m.scale, { y: on ? m.userData.h * k : 0.001, duration: D(d), ease: 'steps(10)', delay: D(i * 0.05) })); },
   /** mercados distribuidos (esquema) */
@@ -70,6 +84,7 @@ const X = {
     });
   },
   agentesVel(v) { if (R.rapido) W.agentes.vel = v; else gsap.to(W.agentes, { vel: v, duration: 1.5 }); },
+  despiece(sep, d = 1.6) { W.pot.planos.forEach((g, i) => tw(g.position, { y: i * sep, duration: D(d), ease: 'steps(12)', delay: D(i * 0.04) })); },
   temblor() { if (R.rapido) return; gsap.fromTo('#mundo, #escena', { x: 0 }, { x: () => (Math.random() - .5) * 30, y: () => (Math.random() - .5) * 20, duration: 0.06, repeat: 8, yoyo: true, ease: 'steps(1)', clearProps: 'transform' }); },
 };
 
@@ -80,8 +95,9 @@ function reiniciarMundo() {
   [...'ABCDEF'].forEach((k) => { const u = uni('p' + k); if (u) { u.uAp.value = 0; u.uS.value = k === 'F' ? 90 : k === 'B' ? 10 : 22; } });
   const u = W.capas.edif.userData.u; u.uFR.value = 0; u.uGris.value = 0;
   Object.values(W.upz).forEach(({ m }) => (m.scale.y = 0.001));
-  W.red6.tubos.forEach((t) => { t.geometry.setDrawRange(0, 0); t.material.opacity = 0.85; });
-  Object.entries(W.red6.nod).forEach(([k, m]) => { m.position.copy(W.red6.P[k]); m.scale.setScalar(k === 'F' ? 210 : 140); });
+  W.red6.tubos.forEach((t) => { t.geometry.setDrawRange(0, 0); t.material.opacity = 0.9; t.userData.punta.scale.setScalar(0.001); t.userData.punta.material.opacity = 0.95; });
+  Object.entries(W.red6.nod).forEach(([k, m]) => { m.position.copy(W.red6.P[k]); m.scale.setScalar(m.userData.r); });
+  W.pot.planos.forEach((g, i) => (g.position.y = i * 150));
   W.mercados.forEach((g) => { g.userData.ar.scale.setScalar(0.001); g.userData.disco.scale.setScalar(0.001); g.userData.n.scale.setScalar(0.001); });
   W.estaciones.forEach((g) => g.scale.setScalar(0.001));
   W.corredor.geometry.setDrawRange(0, 0);
@@ -167,11 +183,11 @@ function cuadro() {
   W.estaciones?.forEach((g) => { g.userData.a.rotation.z = t * 0.8; g.userData.b.rotation.y = t * 1.3; });
   W.coraAros?.forEach((a, i) => (a.rotation.z = t * (i ? -0.2 : 0.3)));
   W.mercados?.forEach((g, i) => (g.userData.n.rotation.y = t * 1.2 + i));
-  W.pot?.grp && (W.pot.grp.rotation.y = t * 0.04);
+  W.pot?.actualizar(t);
   W.red6?.grp && (W.red6.grp.rotation.y = Math.sin(t * 0.15) * 0.12);
   W.arco.material.opacity = 0.25 + Math.sin(t * 1.05) * 0.12; W.polvo.rotation.y = t * 0.01;
   W.r.render(W.scene, W.cam);
-  UI.proyectarEts();
+  UI.proyectarEts(); actualizarCarto(camT.o);
   // hervor stop-motion de la capa DOM y grano que cambia cada cuadro
   if (W.stop) { document.getElementById('escena').style.transform = `translate(${(Math.random() - .5) * 2}px, ${(Math.random() - .5) * 2}px) rotate(${(Math.random() - .5) * 0.12}deg)`; grano.style.backgroundPosition = `${(Math.random() * 256) | 0}px ${(Math.random() * 256) | 0}px`; }
 }

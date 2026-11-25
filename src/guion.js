@@ -64,7 +64,7 @@ export const CAPITULOS = [
   /* ===================================================================== 02 POT */
   {
     n: '02', nombre: 'El POT y la ciudad como sistema complejo', cam: 'pot', tr: 'persiana',
-    base: (X) => { X.capa('edif', true, 0); X.gris(0.7, 0); },
+    base: (X) => { X.capa('edif', true, 0); X.gris(0.7, 0); X.W.pot.planos.forEach((g) => (g.position.y = 0)); },
     beats: [
       { t: 'Como punto de partida, el Plan de Ordenamiento Territorial de Bogotá se reconstruyó como una red', a: (X) => {
         X.capa('red-pot');
@@ -72,28 +72,36 @@ export const CAPITULOS = [
         X.titulo('El POT reconstruido como una *red*', { kick: '02 · Punto de partida', width: 40, cls: 'chico' });
       } },
       { t: 'a partir de los aportes de Albert-László Barabási, físico e investigador de la ciencia de redes.', a: (X) => {
-        X.tarjeta('bar', { k: 'Ciencia de redes', t: 'Albert-László Barabási', d: 'Físico · los nodos y sus conexiones explican la estructura.', left: 7, top: '46vh' });
-        X.dato('nn', { v: X.W.pot.nodos.length, l: 'nodos del POT en el macromodelo', right: '7vw', top: '56vh', chico: true });
+        const M = X.W.pot.M;
+        X.tarjeta('bar', { k: 'Ciencia de redes', t: 'Albert-László Barabási', d: 'Físico · la estructura se lee en los nodos y sus conexiones.', left: 7, top: '30vh' });
+        X.metricasRed('met', { titulo: 'Métricas de la red · macromodelo del POT', right: '5vw', top: '16vh', resumen: [['nodos', M.n], ['aristas', M.m], ['grado medio', M.gradoMedio.toFixed(1).replace('.', ',')], ['densidad', M.densidad.toFixed(3).replace('.', ',')], ['diámetro', M.diametro], ['componentes', M.componentes]], nota: 'Red no dirigida · 8 capas temáticas · tensión de cada relación según el macromodelo.' });
       } },
       { t: 'Se identificaron los nodos centrales,', a: (X) => {
-        X.W.pot.nodos.forEach((m) => { const k = m.userData.hub ? m.userData.r * 1.8 : m.userData.r * 0.55; X.tw(m.scale, { x: k, y: k, z: k, duration: X.D(0.9), ease: 'steps(8)' }); });
-        X.W.pot.nodos.filter((m) => m.userData.hub).slice(0, 3).forEach((m, i) => X.et('hub' + i, { p: [0, 0, 0], obj: m, t: m.userData.nombre.replace(/^[A-Z]+\d+ - /, ''), s: m.userData.grado + ' conexiones', cls: 'nodo', delay: i * 0.2 }));
+        X.quitar('bar');
+        const N = X.W.pot.nodos;
+        N.forEach((m) => { const k = m.userData.hub ? m.userData.r * 1.5 : m.userData.r * 0.6; X.tw(m.scale, { x: k, y: k, z: k, duration: X.D(0.9), ease: 'steps(8)' }); });
+        const top = [...N].sort((a, b) => b.userData.grado - a.userData.grado).slice(0, 5);
+        const corto = (s) => s.replace(/^[A-Z]+\d+ - /, '').replace(/\s*\(.*\)$/, '');
+        X.metricasRed('met', { titulo: 'Nodos centrales · top 5 por grado', right: '5vw', top: '16vh', cols: ['nodo', 'grado k', 'intermediación'], filas: top.map((m) => [corto(m.userData.nombre), m.userData.grado, m.userData.inter.toFixed(3).replace('.', ',')]), nota: 'Grado = número de relaciones. Intermediación (Brandes, normalizada) = cuánto del camino más corto entre otros nodos pasa por este.' });
+        top.slice(0, 3).forEach((m, i) => X.et('hub' + i, { p: [0, 0, 0], obj: m, t: corto(m.userData.nombre), s: 'k = ' + m.userData.grado, cls: 'nodo', delay: i * 0.2 }));
       } },
       { t: 'las relaciones de dependencia y las jerarquías que estructuran este modelo de ciudad.', a: (X) => {
-        X.uTo('red-pot', 'uV', 900, 1); X.uTo('red-pot', 'uBase', 0.55, 1);
-        X.quitar('bar'); X.quitar('nn');
-        X.titulo('Dependencias y *jerarquías*', { kick: '02 · Estructura del plan', width: 40, cls: 'chico' });
+        X.quitarEts(); X.quitar('met');
+        X.despiece(520, 2); X.cam({ p: [0, 3400, 9800], o: [0, 2300, 0], nom: 'Despiece multicapa' }, 2.4);
+        X.titulo('Arquitectura *multicapa*: dependencias y jerarquías', { kick: '02 · Estructura del plan', width: 38, cls: 'chico' });
+        X.W.pot.planos.forEach((g, i) => X.et('capa' + i, { p: [0, 0, 0], obj: g.userData.ancla, t: X.CAPAS_POT[i][0], s: 'capa ' + (i + 1) + ' · ' + X.W.pot.nodos.filter((m) => m.userData.ci === i).length + ' nodos', c: X.CAPAS_POT[i][1], cls: 'nodo', delay: 0.6 + i * 0.12 }));
       } },
       { t: 'Esta representación se contrastó con el enfoque de Michael Batty, investigador del urbanismo computacional que estudia las ciudades como sistemas complejos.', a: (X) => {
-        X.quitarEts(); X.tarjeta('bat', { k: 'Urbanismo computacional', t: 'Michael Batty', d: 'La ciudad como sistema complejo: agentes, flujos y tiempo.', right: '7vw', top: '24vh' });
-        X.capa('agentes'); X.gris(0, 1.5); X.cam({ p: [2600, 2300, 4800], o: [0, 700, 0] }, 2.6);
+        X.limpiar(); X.quitarEts(); X.despiece(0, 1.6);
+        X.tarjeta('bat', { k: 'Urbanismo computacional', t: 'Michael Batty', d: 'La ciudad como sistema complejo: agentes, flujos y tiempo.', right: '7vw', top: '24vh' });
+        X.capa('agentes'); X.gris(0, 1.5); X.cam({ p: [2600, 2300, 4800], o: [0, 700, 0], nom: 'Agentes sobre la ciudad' }, 2.6);
       } },
       { t: 'Se comprende que aunque el plan establece relaciones entre sus componentes, su representación no explica suficientemente', a: (X) => {
         X.limpiar(); X.titulo('El plan *relaciona*… pero ~no explica~', { width: 50 });
       } },
       { t: 'las interacciones entre agentes, los procesos de retroalimentación, las dinámicas emergentes', a: (X) => {
         X.lista('falta', { left: 8, top: '40vh', items: ['Interacciones entre agentes', 'Retroalimentación', 'Dinámicas emergentes'], n: ['↻', '↻', '↻'] });
-        X.agentesVel(3); X.uTo('red-pot', 'uV', 1600, 1);
+        X.agentesVel(3);
       } },
       { t: 'ni cómo estas transforman y producen problemas a través del tiempo.', a: (X) => {
         X.dato('anio', { v: 2026, desde: 1972, l: 'problemas que se producen a través del tiempo', right: '7vw', top: '58vh', dur: 2.4 });
@@ -189,17 +197,17 @@ export const CAPITULOS = [
     base: (X) => { X.gris(0.85, 0); X.capa('red6', true, 0); Object.values(X.W.red6.nod).forEach((m) => m.scale.setScalar(0.01)); },
     beats: [
       { t: 'A partir de estas dinámicas identificamos seis problemas relacionados:', a: (X) => {
-        Object.entries(X.W.red6.nod).forEach(([k, m], i) => { const s = k === 'F' ? 210 : 140; X.twf(m.scale, { x: 0.01, y: 0.01, z: 0.01 }, { x: s, y: s, z: s, duration: X.D(0.7), ease: 'back.out(2.2)', delay: X.D(i * 0.12) }); });
+        Object.entries(X.W.red6.nod).forEach(([k, m], i) => { const s = m.userData.r; X.twf(m.scale, { x: 0.01, y: 0.01, z: 0.01 }, { x: s, y: s, z: s, duration: X.D(0.7), ease: 'back.out(2.2)', delay: X.D(i * 0.12) }); });
         X.dato('seis', { v: 6, l: 'problemas relacionados', left: 7, top: '20vh' });
       } },
       { t: 'la centralización de servicios, el crecimiento poblacional, la valorización del suelo,', a: (X) => { X.quitar('seis'); ['F', 'B', 'C'].forEach((k, i) => nodoEt(X, k, i * 0.35)); } },
       { t: 'la especulación inmobiliaria, la dependencia de alimentos externos y la gestión de residuos sólidos.', a: (X) => { ['D', 'A', 'E'].forEach((k, i) => nodoEt(X, k, i * 0.35)); } },
-      { t: 'Al representarlos como una red, encontramos que el crecimiento poblacional aumenta la demanda de alimentos y servicios,', a: (X) => { X.arista(0); X.gsap.delayedCall(X.R.rapido ? 0 : 0.6, () => X.arista(1)); X.nodo6('B', 180); } },
+      { t: 'Al representarlos como una red, encontramos que el crecimiento poblacional aumenta la demanda de alimentos y servicios,', a: (X) => { X.matriz('adj', { nodos: ['F', 'A', 'B', 'C', 'D', 'E'], colores: X.COL_P, nombres: X.NOM_P, right: '2vw', top: '12vh' }); X.arista(0); X.gsap.delayedCall(X.R.rapido ? 0 : 0.6, () => X.arista(1)); X.nodo6('B', 1.25); } },
       { t: 'cuya concentración influye en la valorización y especulación del suelo.', a: (X) => { X.arista(2); X.gsap.delayedCall(X.R.rapido ? 0 : 0.5, () => X.arista(3)); X.gsap.delayedCall(X.R.rapido ? 0 : 1, () => X.arista(4)); } },
       { t: 'A su vez, la dependencia alimentaria concentra el abastecimiento en Corabastos, aumentando la generación de residuos.', a: (X) => { X.arista(5); X.gsap.delayedCall(X.R.rapido ? 0 : 0.6, () => X.arista(6)); X.gsap.delayedCall(X.R.rapido ? 0 : 1.2, () => X.arista(7)); } },
       { t: 'Al ser la centralización de servicios uno de los nodos con mayor número de conexiones, se convierte en un problema prioritario para nuestra propuesta,', a: (X) => {
-        X.nodo6('F', 330, 1); ['A', 'B', 'C', 'D', 'E'].forEach((k) => X.nodo6(k, 105));
-        X.dato('cx', { v: 5, l: 'conexiones · nodo prioritario', left: 7, top: '20vh' });
+        X.nodo6('F', 1.45, 1); ['A', 'B', 'C', 'D', 'E'].forEach((k) => X.nodo6(k, 0.75));
+        X.dato('cx', { v: 5, l: 'conexiones (k_in 2 + k_out 3) · nodo prioritario', left: 7, top: '20vh' }); X.resaltarGrado('adj', 'F');
       } },
       { t: 'porque su relación con los demás permite identificar dónde una intervención podría generar mayores transformaciones.', a: (X) => {
         X.quitar('cx'); X.titulo('Intervenir donde la red *más se transforma*', { top: '12vh', width: 44, cls: 'chico' });
