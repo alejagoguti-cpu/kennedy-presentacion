@@ -16,7 +16,7 @@ export const CAPITULOS = [
       { t: '[Portada] Kennedy: modelamiento dinámico y simulación.', a: (X) => {
         X.sube(1, X.LUG.corabastos, 5); X.capa('agua'); X.capa('vias-prin');
         X.titulo('Kennedy: *modelamiento dinámico* y simulación', { kick: 'Sustentación · Modelamiento dinámico y simulación', top: '58vh', width: 70 });
-        X.cam('alto', 9);
+        X.cam({ p: [-4600, 1150, 1900], o: [3200, 700, -1600], nom: 'Kennedy y los cerros orientales' }, 14); // avance lento hacia los cerros
       } },
     ],
   },

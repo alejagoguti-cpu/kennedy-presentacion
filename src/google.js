@@ -37,7 +37,7 @@ export function crearGoogle(W, U) {
         Object.assign(sh.uniforms, U);
         sh.vertexShader = 'varying vec3 vWPg;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWPg = (modelMatrix * vec4(transformed, 1.0)).xyz;');
         sh.fragmentShader = 'varying vec3 vWPg; uniform float uSube, uR, uFR, uGris, uLuz; uniform vec2 uOri, uFoco; uniform vec3 uFC;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', `
-          if (distance(vWPg.xz, uOri) > uSube * uR) discard;           // la ciudad aparece en ola
+          if (uSube < 0.999 && distance(vWPg.xz, uOri) > uSube * uR) discard; // la ciudad aparece en ola; terminada, se ve todo (cerros incluidos)
           vec3 c = max(outgoingLight - vec3(0.025, 0.03, 0.04), 0.0) / 0.96;
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
           c = max(mix(vec3(l), c, 1.14), 0.0);

@@ -21,7 +21,7 @@ const TOTAL = BEATS.length;
 /* ======================================================================= API para el guion (X) */
 const ESTACIONES = {
   alto: { p: [2200, 7600, 7000], o: [0, 0, 300], nom: 'Localidad de Kennedy' },
-  portada: { p: [-4200, 3200, 5200], o: [-500, 200, 0] },
+  portada: { p: [-6200, 1500, 2600], o: [2500, 500, -1200], nom: 'Kennedy y los cerros orientales' },
   pot: { p: [0, 3300, 6200], o: [0, 800, 0], nom: 'Red multicapa del POT' },
   capas: { p: [6200, 3600, 6200], o: [0, 1300, 0] },
   red6: { p: [900, 2300, 2900], o: [250, 150, -250], nom: 'Red de seis problemas · conectografía' },
@@ -111,7 +111,7 @@ function entrarCapitulo(ci) {
   reiniciarMundo();
   UI.limpiarTodo();
   capa('losa', true, 0); capa('edif', true, 0);
-  W.capas.edif.userData.u.uSube.value = 1;
+  gsap.killTweensOf(W.capas.edif.userData.u.uSube); W.capas.edif.userData.u.uSube.value = 1;
   c.base?.(X);
   if (c.cam) cam(c.cam, 0);
   document.querySelector('#hud-sec b').textContent = c.n; document.querySelector('#hud-sec span').textContent = c.nombre;
@@ -204,7 +204,7 @@ async function iniciar() {
   window.__k = { ir, sig, ant, BEATS, X, W };
   const desde = parseInt(location.hash.slice(1), 10);
   const empezar = () => { document.getElementById('inicio').remove(); document.body.classList.add('presentando'); if (desde > 1) ir(desde - 1, false); else ir(0); };
-  document.getElementById('empezar').onclick = empezar;
+  document.getElementById('empezar').onclick = (e) => { e.stopPropagation(); empezar(); }; // el clic de Comenzar no cuenta como 'siguiente'
   if (new URLSearchParams(location.search).has('directo')) empezar();
   addEventListener('keydown', (e) => {
     if (document.getElementById('inicio')) { if (e.key === 'Enter' || e.key === ' ') empezar(); return; }
