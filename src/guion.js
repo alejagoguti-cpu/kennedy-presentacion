@@ -352,7 +352,7 @@ export const CAPITULOS = [
       { t: 'Su programa se fundamenta en los estudios sobre convergencia de tecnologías NBIC, desarrollados por Roco y Bainbridge en un informe científico de 2002.', a: (X) => {
         X.limpiar(); X.quitarEts();
         X.titulo('Convergencia *NBIC*', { kick: 'Roco y Bainbridge · 2002', width: 40 });
-        ['N', 'B', 'I', 'C'].forEach((k, i) => X.et('nb' + k, { p: [0, 0, 0], obj: X.W.nbic[i], t: k, s: ['nanotecnología', 'biotecnología', 'información', 'ciencias cognitivas'][i], cls: 'nodo grande', delay: i * 0.2 }));
+        ['N', 'B', 'I', 'C'].forEach((k, i) => X.et('nb' + k, { p: [0, 0, 0], obj: X.W.nbic[i].userData.cabeza, t: k, s: ['nanotecnología', 'biotecnología', 'información', 'ciencias cognitivas'][i], cls: 'nodo grande', delay: i * 0.2 }));
       } },
       { t: 'La biotecnología se vincula con la hidroponía, el compostaje y el cultivo experimental de hongos.', a: (X) => { X.limpiar(); X.tarjeta('tb', { img: E('hongos'), k: 'B · biotecnología', t: 'Hidroponía · compostaje · hongos', left: 7, top: '24vh', cls: 'on' }); } },
       { t: 'Las tecnologías de la información coordinan pedidos, entregas y excedentes.', a: (X) => { X.marcar('tb', 'on', false); X.tarjeta('ti', { k: 'I · información', t: 'Pedidos · entregas · excedentes', left: 7, top: '50vh', cls: 'on' }); } },

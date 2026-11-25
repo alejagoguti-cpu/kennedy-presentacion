@@ -5,7 +5,7 @@ const puppeteer = require('puppeteer-core');
 const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-webgl', '--disable-frame-rate-limit'] });
 const p = await b.newPage(); await p.setViewport({ width: 1920, height: 1080 });
 p.on('console', (m) => { if (m.text().includes('calidad')) console.log('>>', m.text()); });
-await p.goto('http://localhost:4330/?directo', { waitUntil: 'networkidle0', timeout: 120000 });
+await p.goto('http://localhost:4330/?directo', { waitUntil: 'load', timeout: 120000 });
 await p.waitForFunction(() => window.__k, { timeout: 120000 }); await new Promise((r) => setTimeout(r, 3000));
 for (const [n, modo] of [[1, 'stop'], [20, 'stop'], [107, 'stop'], [20, 'fluido']]) {
   await p.evaluate((n) => window.__k.ir(n - 1, false), n);

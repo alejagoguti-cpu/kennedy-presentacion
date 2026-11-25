@@ -7,6 +7,7 @@ import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { cieloYLuz, cerros, suelo, arboles, materialEdificios, colorEdificio } from './realismo.js';
+import { crearGoogle } from './google.js';
 
 export const W = { capas: {}, et: new Map(), t: 0, stop: true };
 const BASE = './';
@@ -184,6 +185,7 @@ export async function crearMundo(canvas) {
   await edificios();
   await Promise.all([suelo(W), arboles(W)]);
   redPOT(pot); red6(); propuesta(); agentes(); await especies(); capas18(); bavaria();
+  W.gfoto = crearGoogle(W, W.capas.edif.userData.u); // fotogrametría real encima de todo lo anterior
   return W;
 }
 function uniRef(nombre, mat) { W.capas[nombre].userData.u = mat.uniforms; }
@@ -441,11 +443,12 @@ function bavaria() {
   const a = anillo(C.lima, 700); a.rotation.x = -Math.PI / 2; a.position.y = 16; grp.add(a);
   const b = anillo(C.lavanda, 900); b.rotation.x = -Math.PI / 2; b.position.y = 16; grp.add(b);
   // NBIC: cuatro esferas cromadas en órbita
-  W.nbic = ['N', 'B', 'I', 'C'].map((k, i) => { const m = new THREE.Mesh(new THREE.SphereGeometry(48, 32, 20), i === 1 ? cromoLima() : cromo()); m.userData = { k, a: (i / 4) * Math.PI * 2 }; grp.add(m); return m; });
+  // NBIC: cuatro marcadores en el suelo alrededor de las naves (no esferas)
+  W.nbic = ['N', 'B', 'I', 'C'].map((k, i) => { const a = (i / 4) * Math.PI * 2 + 0.4; const m = marcador(['#6FC3D0', '#C7FF27', '#A99BCB', '#e0a070'][i], i === 1); m.position.set(Math.cos(a) * 430, 4, Math.sin(a) * 430); m.scale.setScalar(95); m.userData = { ...m.userData, k, a }; grp.add(m); return m; });
   registrar('bavaria', grp); W.bavAros = [a, b];
 }
 export function moverBavaria(t) {
   if (!W.capas.bavaria?.visible) return;
-  W.nbic.forEach((m) => { const a = m.userData.a + t * 0.35; m.position.set(Math.cos(a) * 520, 380 + Math.sin(t + m.userData.a) * 40, Math.sin(a) * 520); });
+  W.nbic.forEach((m, i) => { const k = 1 + 0.08 * Math.sin(t * 2.2 + i); m.scale.set(95 * k, 95, 95 * k); });
   W.bavAros[0].rotation.z = t * 0.2; W.bavAros[1].rotation.z = -t * 0.12;
 }

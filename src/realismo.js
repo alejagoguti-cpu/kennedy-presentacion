@@ -64,7 +64,7 @@ export function cerros(W) {
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const perfil = Math.max(0, 1 - Math.pow(Math.abs(z) / (ancho / 2), 1.6)); p.setY(i, alto * perfil * (0.72 + ruido(x) * 0.55) + Math.sin(x * 0.013 + z * 0.02) * 12); }
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: col, roughness: 1, metalness: 0 })); m.position.set(cx[0], -20, cx[1]); m.rotation.y = rotY; W.scene.add(m); return m;
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: col, roughness: 1, metalness: 0 })); m.position.set(cx[0], -20, cx[1]); m.rotation.y = rotY; W.scene.add(m); (W.cerrosMallas ||= []).push(m); return m;
   };
   hacer([17000, -2000], 7000, 60000, 950, '#3b5446', Math.PI / 2); // cerros orientales (al este, de norte a sur)
   hacer([-2000, 21000], 9000, 50000, 420, '#4a5a48', 0.2); // bordes del sur
@@ -74,7 +74,7 @@ export function cerros(W) {
 /* ---------------------------------------------------------------- suelo, calles y parques */
 export async function suelo(W, lim) {
   const base = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: '#3d3b37', roughness: 1 }));
-  base.rotation.x = -Math.PI / 2; base.position.y = -62; base.receiveShadow = true; W.scene.add(base);
+  base.rotation.x = -Math.PI / 2; base.position.y = -62; base.receiveShadow = true; W.scene.add(base); W.baseSuelo = base;
   // calles: cintas de asfalto con el ancho según la jerarquía (una sola malla)
   const pos = [], nor = [];
   W.datos.vias.vias.forEach((v) => {

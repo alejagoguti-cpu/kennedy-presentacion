@@ -192,3 +192,6 @@ body.presentadora { overflow: auto; background: #0b0c0a; }
 
 /* velo para leer el texto sobre el cielo y la ciudad realistas */
 #escena::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(8, 9, 12, .5) 0%, rgba(8, 9, 12, .15) 38%, transparent 60%), linear-gradient(180deg, rgba(8, 9, 12, .35) 0%, transparent 18%, transparent 80%, rgba(8, 9, 12, .45) 100%); }
+
+#atrib { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font: 400 10px var(--b); color: rgba(245, 243, 235, .7); white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; display: none; }
+#atrib.on { display: block; }

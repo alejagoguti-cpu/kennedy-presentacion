@@ -21,7 +21,7 @@ const LEY = {
   agentes: [['punto', '#F5F3EB', 'Agentes del simulador']],
   especies: [['punto', '#9be15d', 'Fauna: mirla, tingua, colibrí, abeja']],
   capas18: [['borde', '#A99BCB', 'Capa de información satelital']],
-  bavaria: [['anillo', '#C7FF27', 'Bavaria Común · esferas NBIC']],
+  bavaria: [['anillo', '#C7FF27', 'Bavaria Común · marcadores NBIC']],
 };
 [...'ABCDEF'].forEach((k) => (LEY['p' + k] = [['punto', COL_P[k], NOM_P[k]]]));
 LEY['red-pot'] = [
@@ -52,8 +52,8 @@ let firma = '';
 function leyenda() {
   const vis = ORDEN.filter((n) => { const o = W.capas[n]; return o && o.visible && (o.userData.v ?? 1) > 0.3; });
   const red = vis.includes('red-pot') ? ['red-pot'] : vis.includes('red6') ? ['red6', ...vis.filter((n) => /^p[A-F]$/.test(n))] : vis;
-  const f = red.join('|'); if (f === firma) return; firma = f;
-  const ul = document.querySelector('#conv ul'); const items = red.flatMap((n) => LEY[n] || []);
+  const f = red.join('|') + (W.google ? 'g' : ''); if (f === firma) return; firma = f;
+  const ul = document.querySelector('#conv ul'); const items = red.flatMap((n) => (n === 'edif' && W.google ? [['area', '#8d8a83', 'Ciudad real · fotogrametría 3D (Google)']] : LEY[n] || []));
   document.querySelector('#conv .k').textContent = red[0] === 'red-pot' ? 'Convenciones · red multicapa del POT' : red[0] === 'red6' ? 'Convenciones · red dirigida de problemas' : 'Convenciones';
   ul.innerHTML = items.map(([t, c, x]) => `<li class="${t === 'nota' ? 'nota' : ''}">${t === 'nota' ? '' : sim(t, c)}<span>${x}</span></li>`).join('');
   gsap.fromTo(ul.children, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.025, ease: 'steps(4)' });

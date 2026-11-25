@@ -180,7 +180,7 @@ function cuadro() {
   if (W.stop) { const k = rel.length() * 0.0009; W.cam.position.x += (Math.random() - .5) * k; W.cam.position.y += (Math.random() - .5) * k; ob.x += (Math.random() - .5) * k; }
   W.cam.lookAt(ob);
   ['vias-prin', 'flujos', 'iso', 'metro', 'red-pot', 'agentes', 'pA', 'pB', 'pC', 'pD', 'pE', 'pF'].forEach((n) => { const u = uni(n); if (u?.uT) u.uT.value = t; });
-  moverAgentes(dt); moverEspecies(t); moverBavaria(t);
+  moverAgentes(dt); moverEspecies(t); moverBavaria(t); W.gfoto?.update(dt);
   W.estaciones?.forEach((g) => { g.userData.a.rotation.z = t * 0.8; g.userData.b.rotation.y = t * 1.3; });
   W.coraAros?.forEach((a, i) => (a.rotation.z = t * (i ? -0.2 : 0.3)));
   W.mercados?.forEach((g, i) => (g.userData.n.rotation.y = t * 1.2 + i));
