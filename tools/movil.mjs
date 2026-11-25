@@ -9,5 +9,5 @@ await p.emulate({ viewport: { width: 412, height: 892, deviceScaleFactor: 2.5, i
 p.on('pageerror', (e) => console.log('PAGEERROR', e.message.slice(0, 300)));
 await p.goto(process.env.URL || 'http://localhost:4330/?directo', { waitUntil: 'load', timeout: 120000 });
 await p.waitForFunction(() => window.__k, { timeout: 120000 }); await new Promise((r) => setTimeout(r, 3000));
-for (const n of lista.split(',').map(Number)) { await p.evaluate((n) => window.__k.ir(n - 1, true), n); await new Promise((r) => setTimeout(r, 12000)); await p.screenshot({ path: `${out}/m${String(n).padStart(3, '0')}.png` }); }
+for (const n of lista.split(',').map(Number)) { await p.evaluate((n) => window.__k.ir(n - 1, true), n); await new Promise((r) => setTimeout(r, 16000)); await p.screenshot({ path: `${out}/m${String(n).padStart(3, '0')}.png` }); }
 await b.close();

@@ -187,7 +187,7 @@ function cuadro() {
   W.pot?.actualizar(t);
   W.red6?.grp && (W.red6.grp.rotation.y = Math.sin(t * 0.15) * 0.12);
   W.arco.material.opacity = 0.25 + Math.sin(t * 1.05) * 0.12; W.polvo.rotation.y = t * 0.01;
-  sombraSigue(W, camT.o, W.cam.position.distanceTo(camT.o)); if (W.arboles) { W.arboles.UT.uT.value = t; W.arboles.grp.visible = W.cam.position.distanceTo(camT.o) < 5200; } // los árboles solo cuando se distinguen
+  W.camObj = camT.o; sombraSigue(W, camT.o, W.cam.position.distanceTo(camT.o)); if (W.arboles) { W.arboles.UT.uT.value = t; W.arboles.grp.visible = W.cam.position.distanceTo(camT.o) < 5200; } // los árboles solo cuando se distinguen
   const ahora = performance.now(); if (ultimoCuadro) gob?.(ahora - ultimoCuadro); ultimoCuadro = ahora; W.r.render(W.scene, W.cam);
   UI.proyectarEts(); actualizarCarto(camT.o);
   // hervor stop-motion de la capa DOM y grano que cambia cada cuadro

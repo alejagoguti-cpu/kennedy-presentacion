@@ -18,7 +18,7 @@ export function crearGoogle(W, U) {
   tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: new DRACOLoader().setDecoderPath('./draco/') }));
   tiles.setCamera(W.cam); tiles.setResolutionFromRenderer(W.cam, W.r);
   const MOVIL = innerWidth < 900 || /Android|iPhone|iPad/i.test(navigator.userAgent);
-  tiles.errorTarget = MOVIL ? 60 : 40; G.meta = MOVIL ? 14 : 7;
+  tiles.errorTarget = MOVIL ? 40 : 40; G.meta = MOVIL ? 9 : 7;
   const frame = new THREE.Matrix4(); WGS84_ELLIPSOID.getEastNorthUpFrame(LAT0 * D2R, LNG0 * D2R, frame);
   frame.multiply(new THREE.Matrix4().makeTranslation(0, 0, 2564)); // altura elipsoidal aproximada del suelo de Kennedy; luego se calibra
   const M = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(frame.invert());
@@ -55,35 +55,51 @@ export function crearGoogle(W, U) {
     });
   });
   tiles.addEventListener('dispose-model', ({ scene: s }) => s.traverse((c) => { if (c.isMesh) G.mats.delete(c.material); }));
-  tiles.addEventListener('load-error', (e) => { if (!G.ok) console.warn('fotogrametría no disponible: se usa la ciudad procedural', e?.error?.message || ''); });
+  tiles.addEventListener('load-error', (e) => { G.errores = (G.errores || 0) + 1; if (G.errores > 8 && !G.ok) { const ind = document.getElementById('foto-estado'); if (ind) ind.textContent = 'Foto real no disponible · ciudad modelada'; } if (!G.ok) console.warn('fotogrametría no disponible: se usa la ciudad procedural', e?.error?.message || ''); });
 
   // cuando llega la primera tesela, la foto reemplaza a la ciudad procedural
-  function activar() {
-    G.ok = true; W.google = G;
-    const ed = W.capas.edif; ed.children.forEach((m) => (m.visible = false)); ed.add(tiles.group);
-    ['arboles', 'parques', 'calles'].forEach((k) => { const o = W[k]?.grp || W[k]; if (o) o.visible = false; });
-    W.cerrosMallas?.forEach((m) => (m.visible = false));
-    const losa = W.capas.losa; losa.children.forEach((c) => { if (c.isMesh) c.visible = false; });
-    W.sol.castShadow = false; W.r.shadowMap.enabled = false;
-    // los datos se leen por encima de la foto
-    ['pA', 'pB', 'pC', 'pD', 'pE', 'pF', 'agentes', 'flujos', 'iso', 'metro', 'vias-prin'].forEach((n) => W.capas[n]?.traverse((o) => { if (o.material) { o.material.depthTest = false; o.renderOrder = 5; } }));
-    document.getElementById('atrib')?.classList.add('on');
+  // foto ↔ ciudad modelada: se muestra la foto solo donde de verdad cubre la vista (rayos al suelo);
+  // si falta (zona sin descargar, sin red), vuelve la ciudad modelada: nunca queda negro
+  let enFoto = false;
+  function usarFoto(on) {
+    if (on === enFoto) return; enFoto = on; G.ok = on; W.google = on ? G : null;
+    const ed = W.capas.edif; if (tiles.group.parent !== ed) ed.add(tiles.group);
+    ed.children.forEach((m) => { if (m !== tiles.group) m.visible = !on; }); tiles.group.visible = true;
+    ['arboles', 'parques', 'calles'].forEach((k) => { const o = W[k]?.grp || W[k]; if (o) o.visible = !on; });
+    W.cerrosMallas?.forEach((m) => (m.visible = !on));
+    W.capas.losa.children.forEach((c) => { if (c.isMesh) c.visible = !on; });
+    W.sol.castShadow = !on;
+    ['pA', 'pB', 'pC', 'pD', 'pE', 'pF', 'agentes', 'flujos', 'iso', 'metro', 'vias-prin'].forEach((n) => W.capas[n]?.traverse((o) => { if (o.material) { o.material.depthTest = !on; o.renderOrder = on ? 5 : 0; } }));
+    document.getElementById('atrib')?.classList.toggle('on', on);
   }
+  const rcC = new THREE.Raycaster(), bajo = new THREE.Vector3(0, -1, 0), cen = new THREE.Vector3();
+  function cubre() {
+    const o = W.camObj || cen; const d = W.cam.position.distanceTo(o), r = Math.min(2500, d * 0.3); let n = 0;
+    for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) { rcC.set(new THREE.Vector3(o.x + dx, 3500, o.z + dz), bajo); if (rcC.intersectObject(tiles.group, true).some((h) => Math.abs(h.point.y) < 300)) n++; }
+    return n >= 4;
+  }
+  const activar = () => usarFoto(true);
+  G.diag = () => { const o = W.camObj || cen; const d = W.cam.position.distanceTo(o), r = Math.min(2500, d * 0.3); return [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].map(([dx, dz]) => { rcC.set(new THREE.Vector3(o.x + dx, 3500, o.z + dz), bajo); return rcC.intersectObject(tiles.group, true).map((h) => Math.round(h.point.y)); }); };
   // el suelo de la foto se pone en y = 0 midiendo cruces de calles reales (percentil bajo: no techos ni copas)
   const rc = new THREE.Raycaster(), abajo = new THREE.Vector3(0, -1, 0);
   const muestras = W.datos.vias.vias.filter((v) => v[0] >= 4).slice(0, 400).filter((_, i) => i % 8 === 0).map((v) => [v[1], v[2]]);
   function calibrar() {
-    const st = tiles.stats; if (st.downloading + st.parsing > 4) return false;
-    const h = []; for (const [x, z] of muestras) { rc.set(new THREE.Vector3(x, 3000, z), abajo); const r = rc.intersectObject(tiles.group, true)[0]; if (r) h.push(r.point.y); }
-    if (h.length < 10) return false; h.sort((a, b) => a - b); G.dy -= h[Math.floor(h.length * 0.25)]; aplicar(); return true;
+    // solo impactos cerca del suelo esperado (los rayos también atraviesan el planeta y tocan teselas lejanas)
+    const h = []; for (const [x, z] of muestras) { rc.set(new THREE.Vector3(x, 3000, z), abajo); const r = rc.intersectObject(tiles.group, true).filter((q) => Math.abs(q.point.y) < 700); if (r.length) h.push(r[0].point.y); }
+    if (h.length < 10) return false; h.sort((a, b) => a - b); const aj = h[Math.floor(h.length * 0.25)];
+    if (Math.abs(aj) > 500) return false; G.dy -= aj; aplicar(); return true;
   }
   G.update = (dt) => {
     try {
       tiles.setResolutionFromRenderer(W.cam, W.r); W.cam.updateMatrixWorld(); tiles.update();
       const st = tiles.stats;
-      if (!G.ok && G.cargadas > 6 && st.downloading === 0 && st.parsing === 0 && st.visible > 6) activar();
+      G.reloj = (G.reloj || 0) + dt;
+      // la foto entra en cuanto cubre la vista (no hace falta que termine de descargar el detalle)
+      if ((G.chequeo = (G.chequeo || 0) - dt) <= 0) { G.chequeo = 0.8; const c = cubre(); G.malas = c ? 0 : (G.malas || 0) + 1; if (c) usarFoto(true); } // una vez confirmada, la foto se queda (las teselas gruesas de Kennedy siguen en memoria)
+      const ind = document.getElementById('foto-estado');
+      if (ind) ind.textContent = enFoto ? 'Foto real ✓' : 'Foto real: cargando ' + Math.min(99, Math.round(((G.cargadas || 0) / 60) * 100)) + ' %';
       if (tiles.errorTarget > G.meta && st.downloading === 0 && st.parsing === 0 && st.visible > 3) tiles.errorTarget = Math.max(G.meta, Math.round(tiles.errorTarget * 0.7));
-      G.t += dt; if (G.calib < 2 && G.t > [3, 10][G.calib]) { if (calibrar()) G.calib++; else G.t = 0; }
+      G.t += dt; if (G.calib < 2 && G.t > [3, 10][G.calib]) { if (calibrar()) { G.calib++; G.malas = 0; } else G.t = 0; }
       if ((G.atrib -= dt) <= 0) { G.atrib = 3; const a = tiles.getAttributions?.() || []; const txt = a.filter((x) => x.type === 'string').map((x) => x.value).join(' · '); const el = document.getElementById('atrib'); if (el && txt) el.textContent = 'Fotogrametría: Google · ' + txt; }
     } catch (err) { if (!G.fallo) { G.fallo = true; console.warn('fotogrametría', err); } }
   };
