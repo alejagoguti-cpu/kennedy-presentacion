@@ -127,7 +127,7 @@ export async function crearMundo(canvas) {
   const sh = new THREE.Shape(lim.pts.map(([x, z]) => new THREE.Vector2(x, -z)));
   const gl = new THREE.ExtrudeGeometry(sh, { depth: 60, bevelEnabled: false }); gl.rotateX(-Math.PI / 2); gl.translate(0, -60, 0);
   const losa = new THREE.Group();
-  const ml = new THREE.Mesh(gl, new THREE.MeshStandardMaterial({ color: '#8a8477', roughness: 0.95, metalness: 0 })); ml.receiveShadow = true; losa.add(ml);
+  const ml = new THREE.Mesh(gl, new THREE.MeshStandardMaterial({ color: '#4a4741', roughness: 0.95, metalness: 0 })); ml.receiveShadow = true; losa.add(ml);
   const borde = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(lim.pts.map(([x, z]) => new THREE.Vector3(x, 2, z))), new THREE.LineBasicMaterial({ color: C.lima, transparent: true, opacity: 0.9 }));
   losa.add(borde); registrar('losa', losa);
 

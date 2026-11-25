@@ -6,11 +6,11 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 /* Fotograma clave del simulador (cielo.js) entre la puesta (e = 0°) y la hora dorada (e = 5°) */
 export const HORA = {
-  top: new THREE.Color(0x3d6eae), mid: new THREE.Color(0xb9a9ae), bot: new THREE.Color(0xf6b67e), hor: new THREE.Color(0xffc98e),
-  fog: new THREE.Color(0xe6cbb2), hemi: new THREE.Color(0xd3d6ec), suelo: new THREE.Color(0x8a7258), sol: new THREE.Color(0xffc68a),
+  top: new THREE.Color(0x1d3a72), mid: new THREE.Color(0x6a6fa8), bot: new THREE.Color(0xf09a5c), hor: new THREE.Color(0xff9a4e),
+  fog: new THREE.Color(0x5d5a78), hemi: new THREE.Color(0x8a93a8), suelo: new THREE.Color(0x3a322b), sol: new THREE.Color(0xffa45c),
 };
 // sol al occidente (−x), 7° sobre el horizonte, un poco al sur
-export const SOL_DIR = new THREE.Vector3(-0.9, 0.34, 0.28).normalize(); // hora dorada: sol bajo al occidente
+export const SOL_DIR = new THREE.Vector3(-0.93, 0.2, 0.3).normalize(); // puesta: sol rasante al occidente
 const tl = new THREE.TextureLoader();
 const tex = (u, rep = true) => { const t = tl.load(u); t.colorSpace = THREE.SRGBColorSpace; if (rep) t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; };
 
@@ -37,16 +37,16 @@ export function cieloYLuz(W) {
   }));
   cielo.frustumCulled = false; cielo.renderOrder = -1; W.scene.add(cielo); W.cielo = cielo; W.cieloU = U;
   W.scene.background = null;
-  W.scene.fog = new THREE.FogExp2(HORA.fog, 0.000032);
+  W.scene.fog = new THREE.FogExp2(HORA.fog, 0.000022);
   // entorno de reflejos a partir del propio cielo (cromo, agua y vidrio reflejan el atardecer)
   const s = new THREE.Scene(); const cc = cielo.clone(); cc.scale.setScalar(0.001); s.add(cc); // dentro del alcance de la cámara cúbica
   const pm = new THREE.PMREMGenerator(W.r); W.scene.environment = pm.fromScene(s, 0.04).texture; pm.dispose();
   // luces
-  const hemi = new THREE.HemisphereLight(HORA.hemi, HORA.suelo, 2.1); W.scene.add(hemi);
-  const sol = new THREE.DirectionalLight(HORA.sol, 4.6); sol.castShadow = true;
+  const hemi = new THREE.HemisphereLight(HORA.hemi, HORA.suelo, 1.05); W.scene.add(hemi);
+  const sol = new THREE.DirectionalLight(HORA.sol, 4.2); sol.castShadow = true;
   sol.shadow.mapSize.set(4096, 4096); sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5;
   Object.assign(sol.shadow.camera, { near: 100, far: 30000 }); W.scene.add(sol); W.scene.add(sol.target); W.sol = sol;
-  W.r.shadowMap.enabled = true; W.r.shadowMap.type = THREE.PCFSoftShadowMap; W.r.toneMappingExposure = 1.22;
+  W.r.shadowMap.enabled = true; W.r.shadowMap.type = THREE.PCFSoftShadowMap; W.r.toneMappingExposure = 0.95;
 }
 /** la sombra solo cubre lo que se ve (calidad constante a cualquier zoom) */
 export function sombraSigue(W, obj, dist) {
@@ -73,7 +73,7 @@ export function cerros(W) {
 
 /* ---------------------------------------------------------------- suelo, calles y parques */
 export async function suelo(W, lim) {
-  const base = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: '#7a7466', roughness: 1 }));
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: '#3d3b37', roughness: 1 }));
   base.rotation.x = -Math.PI / 2; base.position.y = -62; base.receiveShadow = true; W.scene.add(base);
   // calles: cintas de asfalto con el ancho según la jerarquía (una sola malla)
   const pos = [], nor = [];
@@ -96,13 +96,13 @@ export async function suelo(W, lim) {
   const gp = mergeGeometries(gs); const pp = gp.attributes.position, uv = new Float32Array(pp.count * 2);
   for (let i = 0; i < pp.count; i++) { uv[i * 2] = pp.getX(i) / 22; uv[i * 2 + 1] = pp.getZ(i) / 22; }
   gp.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  const parques = new THREE.Mesh(gp, new THREE.MeshStandardMaterial({ map: tex('./tex/pasto_color.jpg'), color: '#a8c08a', roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const parques = new THREE.Mesh(gp, new THREE.MeshStandardMaterial({ map: tex('./tex/pasto_color.jpg'), color: '#93b46e', roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2 }));
   parques.receiveShadow = true; W.scene.add(parques); W.parques = parques;
 }
 
 /* ---------------------------------------------------------------- material de edificios: ladrillo, ventanas, cubiertas y oclusión */
 export function materialEdificios(U) {
-  Object.assign(U, { uLad: { value: tex('./tex/ladrillo_color.jpg') }, uTecho: { value: tex('./tex/techos.jpg') }, uNoche: { value: 0.85 } });
+  Object.assign(U, { uLad: { value: tex('./tex/ladrillo_color.jpg') }, uTecho: { value: tex('./tex/techos.jpg') }, uNoche: { value: 1.6 } });
   const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, metalness: 0.0, envMapIntensity: 0.55 });
   const ola = `
       vec2 cen = (instanceMatrix * vec4(0.,0.,0.,1.)).xz;
@@ -123,7 +123,7 @@ export function materialEdificios(U) {
       float cu = fract(u / 3.4), cv = fract(v / 2.8);
       float ven = muro * step(0.2, cu) * step(cu, 0.72) * step(0.32, cv) * step(cv, 0.82) * step(1.4, v) * step(v, vH - 0.5);
       vec3 lad = texture2D(uLad, vec2(u, v) / 3.5).rgb; float lum = dot(lad, vec3(.299,.587,.114));
-      vec3 murC = diffuseColor.rgb * (0.5 + 1.05 * lum);
+      vec3 murC = diffuseColor.rgb * (0.45 + 0.95 * lum);
       vec3 techo = mix(texture2D(uTecho, vWP.xz / 26.0).rgb * 1.15, diffuseColor.rgb, 0.35);
       diffuseColor.rgb = mix(techo, murC, muro);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.075, 0.095), ven);
@@ -141,8 +141,8 @@ export function materialEdificios(U) {
   return { mat, prof };
 }
 /** paleta de Bogotá: mucho ladrillo en lo bajo, más concreto claro en lo alto */
-const PAL_BAJO = ['#b0603f', '#a35337', '#bd6b45', '#9a4e35', '#c98a63', '#d8cdb8', '#e3ddd0', '#a8a49a'];
-const PAL_ALTO = ['#d9d4c8', '#e6e1d6', '#c0bcb2', '#b46a48', '#9fa3a6', '#d2c3a8'];
+const PAL_BAJO = ['#a4502f', '#934528', '#b05a35', '#8a4129', '#b8754d', '#bfb29c', '#c9c1b1', '#8f8b82'];
+const PAL_ALTO = ['#bdb7aa', '#cbc5b8', '#a7a399', '#a65d3d', '#8d9194', '#b8a98f'];
 export function colorEdificio(h, r, c) { const p = h > 16 ? PAL_ALTO : PAL_BAJO; return c.set(p[Math.floor(r * p.length) % p.length]); }
 
 /* ---------------------------------------------------------------- 119.886 árboles reales (vallas cruzadas + copa) */
