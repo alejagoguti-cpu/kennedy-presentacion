@@ -195,3 +195,35 @@ body.presentadora { overflow: auto; background: #0b0c0a; }
 
 #atrib { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font: 400 10px var(--b); color: rgba(245, 243, 235, .7); white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; display: none; }
 #atrib.on { display: block; }
+
+/* ---------- celular y pantallas angostas: vista previa legible ---------- */
+@media (max-width: 900px), (max-aspect-ratio: 1/1) {
+  #hud-sec, #hud-modo { display: none; }
+  #hud-der { right: 18px; top: 22px; font-size: 10px; }
+  .hud-marca { left: 18px; top: 16px; font-size: 22px; }
+  #hud .esq { width: 14px; height: 14px; }
+  .tit, .tit.der { left: 6vw; right: auto; width: 88vw !important; top: 9vh; text-align: left; font-size: clamp(26px, 8vw, 40px); }
+  .tit.chico { font-size: clamp(22px, 6.6vw, 34px); }
+  .tit.centro { left: 50%; top: 40%; width: 90vw !important; text-align: center; }
+  .kick { left: 6vw; top: calc(9vh - 30px) !important; font-size: 10px; gap: 8px; }
+  .kick::before { width: 18px; }
+  .sub { left: 6vw; width: 88vw; bottom: 26vh; font-size: 15px; }
+  .dato .v { font-size: clamp(54px, 18vw, 96px); } .dato .l { font-size: 11px; max-width: 70vw; }
+  .vid.tarjeta { min-width: 0; width: 60vw; padding: 12px 14px; } .tarjeta .t { font-size: 17px; } .tarjeta .d { font-size: 12px; }
+  .foto { width: 84vw !important; height: 30vh !important; left: 8vw !important; right: auto !important; top: 46vh !important; }
+  .lista .x { font-size: 15px; } .lista .n { font-size: 22px; } .lista .it { grid-template-columns: 34px 1fr; gap: 10px; }
+  .matriz, .metr { min-width: 0; width: 92vw !important; left: 4vw !important; right: auto !important; top: 34vh !important; transform: scale(.78); transform-origin: top left; }
+  .metr-res b { font-size: 22px; }
+  .par { left: 4vw; right: 4vw; top: 22vh; bottom: 30vh; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
+  .et .c b { font-size: 13px; } .et .c small { font-size: 9px; } .et.grande .c b { font-size: 18px; }
+  /* convenciones compactas abajo; escala y localizador arriba a la derecha */
+  #conv { left: 10px; right: 10px; bottom: 14px; max-width: none; max-height: 19vh; overflow: hidden; padding: 8px 10px; }
+  #conv ul { gap: 3px 12px; } #conv li { font-size: 10px; } #conv li.nota { font-size: 9px; }
+  #carto { right: 12px; bottom: calc(19vh + 30px); top: auto; gap: 6px; flex-direction: row-reverse; align-items: flex-end; }
+  #mini { width: 74px; height: 74px; }
+  .carto-der { gap: 4px; } #norte { width: 28px; height: 28px; } #norte svg { width: 22px; height: 22px; }
+  #razon { display: none; } #zoomnivel { font-size: 9px; }
+  #atrib { bottom: 2px; max-width: 90vw; font-size: 9px; }
+  #zoomaviso { top: 56px; font-size: 10px; padding: 6px 10px; }
+  .gameover { font-size: 17vw; }
+}

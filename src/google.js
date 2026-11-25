@@ -17,7 +17,8 @@ export function crearGoogle(W, U) {
   tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: GKEY, autoRefreshToken: true }));
   tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: new DRACOLoader().setDecoderPath('./draco/') }));
   tiles.setCamera(W.cam); tiles.setResolutionFromRenderer(W.cam, W.r);
-  tiles.errorTarget = 40;
+  const MOVIL = innerWidth < 900 || /Android|iPhone|iPad/i.test(navigator.userAgent);
+  tiles.errorTarget = MOVIL ? 60 : 40; G.meta = MOVIL ? 14 : 7;
   const frame = new THREE.Matrix4(); WGS84_ELLIPSOID.getEastNorthUpFrame(LAT0 * D2R, LNG0 * D2R, frame);
   frame.multiply(new THREE.Matrix4().makeTranslation(0, 0, 2564)); // altura elipsoidal aproximada del suelo de Kennedy; luego se calibra
   const M = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(frame.invert());
@@ -26,7 +27,7 @@ export function crearGoogle(W, U) {
   aplicar();
 
   tiles.addEventListener('load-model', ({ scene: s }) => {
-    if (!G.ok) activar();
+    G.cargadas = (G.cargadas || 0) + 1;
     s.traverse((c) => {
       const m = c.isMesh && c.material; if (!m || !m.map) return;
       m.map.anisotropy = W.r.capabilities.getMaxAnisotropy();
@@ -60,7 +61,7 @@ export function crearGoogle(W, U) {
   function activar() {
     G.ok = true; W.google = G;
     const ed = W.capas.edif; ed.children.forEach((m) => (m.visible = false)); ed.add(tiles.group);
-    ['arboles', 'parques', 'calles', 'baseSuelo'].forEach((k) => { const o = W[k]?.grp || W[k]; if (o) o.visible = false; });
+    ['arboles', 'parques', 'calles'].forEach((k) => { const o = W[k]?.grp || W[k]; if (o) o.visible = false; });
     W.cerrosMallas?.forEach((m) => (m.visible = false));
     const losa = W.capas.losa; losa.children.forEach((c) => { if (c.isMesh) c.visible = false; });
     W.sol.castShadow = false; W.r.shadowMap.enabled = false;
@@ -80,12 +81,13 @@ export function crearGoogle(W, U) {
     try {
       tiles.setResolutionFromRenderer(W.cam, W.r); W.cam.updateMatrixWorld(); tiles.update();
       const st = tiles.stats;
+      if (!G.ok && G.cargadas > 6 && st.downloading === 0 && st.parsing === 0 && st.visible > 6) activar();
       if (tiles.errorTarget > G.meta && st.downloading === 0 && st.parsing === 0 && st.visible > 3) tiles.errorTarget = Math.max(G.meta, Math.round(tiles.errorTarget * 0.7));
-      G.t += dt; if (G.ok && G.calib < 2 && G.t > [3, 10][G.calib]) { if (calibrar()) G.calib++; else G.t = 0; }
+      G.t += dt; if (G.calib < 2 && G.t > [3, 10][G.calib]) { if (calibrar()) G.calib++; else G.t = 0; }
       if ((G.atrib -= dt) <= 0) { G.atrib = 3; const a = tiles.getAttributions?.() || []; const txt = a.filter((x) => x.type === 'string').map((x) => x.value).join(' · '); const el = document.getElementById('atrib'); if (el && txt) el.textContent = 'Fotogrametría: Google · ' + txt; }
     } catch (err) { if (!G.fallo) { G.fallo = true; console.warn('fotogrametría', err); } }
   };
   G.tiles = tiles;
-  W.scene.add(tiles.group); // provisional hasta activar()
+  tiles.group.visible = true; W.scene.add(tiles.group); // provisional hasta activar(): se carga detrás de la ciudad modelada
   return G;
 }

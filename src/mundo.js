@@ -103,9 +103,16 @@ function puntos(pts, color, size, y = 8) {
 /* ------------------------------------------------------------------ construcción */
 export async function crearMundo(canvas) {
   const r = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
-  r.setPixelRatio(Math.min(1.5, devicePixelRatio)); r.setSize(innerWidth, innerHeight, false);
+  r.setPixelRatio(Math.min(innerWidth < 900 ? 1.25 : 1.5, devicePixelRatio)); r.setSize(innerWidth, innerHeight, false);
   // el centro de la escena 3D se corre a la derecha: el texto vive a la izquierda
-  const desplazar = () => { cam.setViewOffset(innerWidth, innerHeight, -innerWidth * 0.11, 0, innerWidth, innerHeight); };
+  // encuadre: en horizontal el centro 3D se corre a la derecha (texto a la izquierda);
+  // en vertical (celular) se conserva el ancho de vista de una pantalla 16:9 y no se corre
+  const desplazar = () => {
+    const a = innerWidth / innerHeight;
+    if (a < 1.2) { cam.fov = Math.min(80, 2 * Math.atan(Math.tan(18 * Math.PI / 180) * 1.6 / a) * 180 / Math.PI); cam.clearViewOffset(); }
+    else { cam.fov = 36; cam.setViewOffset(innerWidth, innerHeight, -innerWidth * 0.11, 0, innerWidth, innerHeight); }
+    cam.updateProjectionMatrix();
+  };
   r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#08090C'); scene.fog = new THREE.FogExp2('#08090C', 0.000085);
   scene.environment = entorno(r);

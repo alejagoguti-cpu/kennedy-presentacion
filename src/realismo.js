@@ -29,6 +29,7 @@ export function cieloYLuz(W) {
         vec2 dh = normalize(d.xz+1e-5), sh = normalize(S.xz+1e-5); float lado = .35 + .65*pow(max(dot(dh,sh)*.5+.5,0.),2.5);
         c = mix(c, uHor, lado * exp(-max(h,0.)*7.) * smoothstep(-.12,.02,h));
         float sa = max(dot(d,S),0.); c += vec3(1.,.75,.45) * (pow(sa,900.)*6. + pow(sa,12.)*.35);
+        c = mix(c, vec3(.13,.12,.13), smoothstep(-.01,-.09,h)); // bajo el horizonte: suelo oscuro, nunca cielo
         if (h > 0.) { vec2 uv = d.xz/(h+.22)*.7 + uT*vec2(.006,.002); float n = fbm(uv), n2 = fbm(uv*2.3+4.);
           float cov = smoothstep(.5,.78, n*.72+n2*.28) * smoothstep(0.,.16,h);
           vec3 nub = mix(vec3(.55,.45,.52), vec3(1.,.78,.62), clamp(.4 + (fbm(uv - S.xz*.06)-n)*3.5 + lado*.4, 0., 1.));
@@ -73,7 +74,7 @@ export function cerros(W) {
 
 /* ---------------------------------------------------------------- suelo, calles y parques */
 export async function suelo(W, lim) {
-  const base = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: '#3d3b37', roughness: 1 }));
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: '#34322e', roughness: 1 }));
   base.rotation.x = -Math.PI / 2; base.position.y = -62; base.receiveShadow = true; W.scene.add(base); W.baseSuelo = base;
   // calles: cintas de asfalto con el ancho según la jerarquía (una sola malla)
   const pos = [], nor = [];
